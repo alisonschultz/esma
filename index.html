@@ -201,6 +201,28 @@
         // draw only nodes with flow
         const visibleNodes = Gnodes.filter(d => d.value > 0);
 
+        // column headings
+        const leftNodes = visibleNodes.filter(d => d.col === "L");
+        const rightNodes = visibleNodes.filter(d => d.col === "R");
+        const leftX = d3.min(leftNodes, d => d.x0);
+        const rightX = d3.max(rightNodes, d => d.x1);
+
+        svg.append("text")
+          .attr("x", leftX + sankeyGen.nodeWidth() + 6)
+          .attr("y", -15)
+          .attr("text-anchor", "start")
+          .style("font-size", "12px")
+          .style("font-weight", "bold")
+          .text("Vor ESMA-Leitlinien");
+
+        svg.append("text")
+          .attr("x", rightX - 6)
+          .attr("y", -15)
+          .attr("text-anchor", "end")
+          .style("font-size", "12px")
+          .style("font-weight", "bold")
+          .text("Nach ESMA-Leitlinien");
+
         const node = svg.append("g")
           .selectAll("g")
           .data(visibleNodes)
