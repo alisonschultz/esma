@@ -208,7 +208,7 @@
         const rightX = d3.max(rightNodes, d => d.x1);
 
         svg.append("text")
-          .attr("x", leftX + sankeyGen.nodeWidth() + 6)
+          .attr("x", leftX)
           .attr("y", -15)
           .attr("text-anchor", "start")
           .style("font-size", "12px")
