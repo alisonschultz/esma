@@ -53,26 +53,17 @@
 <body>
 
   <div id="controls">
-    <label for="amSelect">Fonds-Gruppe:</label>
+    <label for="amSelect">Investments:</label>
     <select id="amSelect">
-      <option value="esi_gogcel" selected>ESI Fonds</option>
-      <option value="allianz_gi">Allianz</option>
-      <option value="amundi">Amundi</option>
-      <option value="blackrock">BlackRock</option>
-      <option value="bnp_paribas">BNP Paribas</option>
-      <option value="deka">Deka</option>
-      <option value="dws">DWS</option>
-      <option value="northern_trust">Northern Trust</option>
-      <option value="state_street">State Street</option>
-      <option value="ubs">UBS</option>
-      <option value="union_investment">Union Investment</option>
-      <option value="vanguard">Vanguard</option>
+      <option value="esi_gogcel" selected>Alle GOGEL und GCEL-Firmen</option>
+      <option value="esi_pab">Firmen, die gegen die Paris-aligned Benchmark (PAB) verstoßen</option>
+      <option value="esi_expansion">Firmen, die ihre fossilen Aktivitäten ausbauen</option>
     </select>
   </div>
 
   <p style="margin: 10px; max-width: 700px; text-align: center;">
   📄 <a href="https://www.finanzwende.de/fileadmin/user_upload/pdf/20250528_Analyse_Fonds-Umbenennungen.pdf" target="_blank" style="text-decoration: none; color: #006699;">
-    To the study on fund renaming in response to the ESMA Guidelines on funds' names using ESG or sustainability-related terms
+    To the study ...[Neue Studie verlinken]
   </a>
   </p>
 
@@ -89,11 +80,19 @@
 
     // desired vertical order
     const order = [
-      "left_gogcel",
-       "right_gogcel",
+      "left_fossil",
+       "right_fossil",
        "right_renamed",
        "right_divested",
-     ];
+    ];
+
+    const labels = {
+        left_fossil: "Investment",
+        right_fossil: "Investment",
+        right_renamed:  "Umbenennung",
+        right_divested: "Divestment",
+    };
+
 
     // SVG setup
     const svg = d3.select("#chart")
@@ -197,7 +196,7 @@
               svg.classed("dimmed",true);
               d3.select(e.currentTarget).classed("highlight",true);
               tooltip.style("opacity",1)
-                .html(d.name)
+                .html(labels[d.name] || d.name)
                 .style("left",`${e.pageX+6}px`)
                 .style("top",`${e.pageY-6}px`);
             })
@@ -217,12 +216,12 @@
           .attr("fill", d=>d.color);
 
         node.append("text")
-          .attr("x", d=> d.col==="L" ? sankeyGen.nodeWidth()+6 : -6)
-          .attr("y", d=> (d.y1-d.y0)/2)
-          .attr("dy","0.35em")
-          .attr("text-anchor", d=> d.col==="L" ? "start" : "end")
-          .style("font-size","12px")
-          .text(d=>d.name);
+            .attr("x", d=> d.col==="L" ? sankeyGen.nodeWidth()+6 : -6)
+            .attr("y", d=> (d.y1-d.y0)/2)
+            .attr("dy","0.35em")
+            .attr("text-anchor", d=> d.col==="L" ? "start" : "end")
+            .style("font-size","12px")
+            .text(d => labels[d.name] || d.name);
 
       })
       .catch(err => console.error("Failed to load CSVs or build sankey:", err));
