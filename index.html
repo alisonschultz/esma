@@ -54,8 +54,8 @@
   <div id="controls">
     <label for="amSelect">Investments:</label>
     <select id="amSelect">
-      <option value="esi_gogcel" selected>Alle GOGEL und GCEL-Firmen</option>
       <option value="esi_pab">Firmen, die gegen die Paris-aligned Benchmark (PAB) verstoßen</option>
+      <option value="esi_gogcel" selected>Alle GOGEL und GCEL-Firmen</option>
       <option value="esi_expansion">Firmen, die ihre fossilen Aktivitäten ausbauen</option>
       <option value="esi_expansion_coal_expansion">Firmen mit Kohle-Expansion</option>
       <option value="esi_expansion_short_term_expansion_20_mmboe">Firmen mit Short-Term Expansion (≥ 20 mmboe)</option>
@@ -272,7 +272,7 @@
     d3.select("#amSelect").on("change", function() {
       loadChart(this.value);
     });
-    loadChart("esi_gogcel");
+    loadChart("esi_pab");
   </script>
 </body>
 </html>
