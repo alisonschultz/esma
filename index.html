@@ -118,7 +118,7 @@
     };
 
     // rounded integer with thousands separator
-    const fmt = d3.format(",.0f");
+    const fmtDE0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 
     // SVG setup
     const svg = d3.select("#chart")
@@ -212,7 +212,7 @@
               svg.classed("dimmed",true);
               d3.select(e.currentTarget).classed("highlight",true);
               tooltip.style("opacity",1)
-                     .html(`${fmt(d.value)} Mil. €`);
+                     .html(`${fmtDE0.format(d.value)} Mil. €`);
               positionTooltip(e);
             })
             .on("mousemove",e=>{
@@ -259,7 +259,7 @@
               svg.classed("dimmed",true);
               d3.select(e.currentTarget).classed("highlight",true);
               tooltip.style("opacity",1)
-                     .html(`${labels[d.name] || d.name}: ${fmt(d.value)} Mil. €`);
+                     .html(`${labels[d.name] || d.name}: ${fmtDE0.format(d.value)} Mil. €`);
               positionTooltip(e);
             })
             .on("mousemove",e=>{
