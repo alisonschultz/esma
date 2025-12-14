@@ -1,4 +1,4 @@
-source_kategorie,target_kategorie,value
-left_fossil,right_fossil,533.2679623399999
-left_fossil,right_renamed,6981.805147659999
-left_fossil,right_divested,2306.9470189260364
+source_kategorie;target_kategorie;value
+left_fossil;right_fossil;533,27
+left_fossil;right_renamed;6.981,81
+left_fossil;right_divested;2.306,95
