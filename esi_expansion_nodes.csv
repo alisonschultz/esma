@@ -1,5 +1,5 @@
-kategorie,color
-left_fossil,#5A3C2E
-right_esi,#5A3C2E
-right_renamed,#D2A679
-right_divested,#2F7F4F
+kategorie,color,preisbereinigt_mio
+left_fossil,#5A3C2E,
+right_esi,#5A3C2E,
+right_renamed,#D2A679,
+right_divested,#2F7F4F,263.5868466674611

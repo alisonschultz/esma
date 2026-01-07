@@ -102,17 +102,16 @@
     const width  = fullW  - margin.left - margin.right;
     const height = fullH  - margin.top  - margin.bottom;
 
-    // desired vertical order
     const order = [
       "left_fossil",
-      "right_fossil_esi",
+      "right_esi",
       "right_renamed",
       "right_divested",
     ];
 
     const labels = {
       left_fossil:   "Ausgangsbestand",
-      right_fossil_esi:  "Weiterhin investiert – Fondsname unverändert",
+      right_esi:     "Weiterhin investiert – Fondsname unverändert",
       right_renamed: "Weiterhin investiert – Fondsname geändert",
       right_divested:"Verkauft",
     };
@@ -163,12 +162,23 @@
       ]).then(([nodesRaw, linksRaw]) => {
         const N = nodesRaw.length;
 
-        // duplicate nodes left/right
+          // duplicate nodes left/right + carry extra field
         const sankeyNodes = nodesRaw
-          .map(d => ({ name: d.kategorie.trim(), color: d.color, col: "L" }))
+          .map(d => ({
+            name: d.kategorie.trim(),
+            color: d.color,
+            col: "L",
+            preisbereinigt: +d.preisbereinigt_mio  // NaN for most nodes
+          }))
           .concat(
-            nodesRaw.map(d => ({ name: d.kategorie.trim(), color: d.color, col: "R" }))
+            nodesRaw.map(d => ({
+              name: d.kategorie.trim(),
+              color: d.color,
+              col: "R",
+              preisbereinigt: +d.preisbereinigt_mio
+            }))
           );
+
 
         // build links
         const sankeyLinks = linksRaw
@@ -211,8 +221,13 @@
             .on("mouseover",(e,d)=>{
               svg.classed("dimmed",true);
               d3.select(e.currentTarget).classed("highlight",true);
-              tooltip.style("opacity",1)
-                     .html(`${fmtDE0.format(d.value)} Mil. €`);
+
+              let html = `${labels[d.name] || d.name}: ${fmtDE0.format(d.value)} Mil. €`;
+              if (d.col === "R" && d.name === "right_divested" && Number.isFinite(d.preisbereinigt)) {
+                html += `<br><span style="font-size:11px">Preisbereinigt: ${fmtDE0.format(d.preisbereinigt)} Mil. €</span>`;
+              }
+
+              tooltip.style("opacity",1).html(html);
               positionTooltip(e);
             })
             .on("mousemove",e=>{
@@ -282,7 +297,24 @@
           .attr("dy","0.35em")
           .attr("text-anchor", d=> d.col==="L" ? "start" : "end")
           .style("font-size","12px")
-          .text(d => labels[d.name] || d.name);
+          .each(function(d) {
+            const x = (d.col==="L") ? (sankeyGen.nodeWidth()+6) : -6;
+            const t = d3.select(this);
+
+            t.append("tspan")
+              .attr("x", x)
+              .text(labels[d.name] || d.name);
+
+            // Add second line only for right_divested on the RIGHT column
+            if (d.col === "R" && d.name === "right_divested" && Number.isFinite(d.preisbereinigt)) {
+              t.append("tspan")
+                .attr("x", x)
+                .attr("dy", "1.15em")
+                .style("font-size", "10px")
+                .text(`Preisbereinigt: ${fmtDE0.format(d.preisbereinigt)} Mil. €`);
+            }
+          });
+
 
       })
       .catch(err => console.error("Failed to load CSVs or build sankey:", err));
