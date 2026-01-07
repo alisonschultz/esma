@@ -111,10 +111,10 @@
     ];
 
     const labels = {
-      left_fossil:   "Investment",
-      right_fossil:  "Investment",
-      right_renamed: "Umbenennung",
-      right_divested:"Divestment",
+      left_fossil:   "Ausgangsbestand",
+      right_fossil:  "Weiterhin investiert – Fondsname unverändert",
+      right_renamed: "Weiterhin investiert – Fondsname geändert",
+      right_divested:"Verkauft",
     };
 
     // rounded integer with thousands separator
@@ -288,11 +288,11 @@
       .catch(err => console.error("Failed to load CSVs or build sankey:", err));
     }
 
-    // wire up dropdown & initial draw
-    d3.select("#amSelect").on("change", function() {
-      loadChart(this.value);
-    });
-    loadChart("esi_pab");
+  d3.select("#amSelect").on("change", function() {
+    loadChart(this.value);
+  });
+
+  loadChart(d3.select("#amSelect").property("value"));
   </script>
 </body>
 </html>
