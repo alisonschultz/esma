@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben</title>
   <meta property="og:title" content="ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben" />
   <meta property="og:description" content="Diese Grafik betrachtet nur Fonds mit Begriffen wie Nachhaltigkeit, Umwelt oder Impact im Namen. Nach den ESMA-Leitlinien dürfen diese Fonds keine Unternehmen im Portfolio haben, die nach der Paris-aligned Benchmark (PAB) ausgeschlossen sind. Die Grafik zeigt, was sich verändert hat." />
@@ -119,6 +119,7 @@
 
   <div id="chartWrap">
     <div id="chart"></div>
+
     <div id="downloads" aria-label="downloads">
       <button id="btnSvg" type="button">SVG herunterladen</button>
       <button id="btnPng" type="button">PNG herunterladen</button>
@@ -141,11 +142,11 @@
       "right_divested",
     ];
 
-    // Two-line labels on the right
+    // Labels (two lines for the long ones)
     const labels = {
       left_fossil:   ["Ausgangsbestand"],
-      right_esi:     ["Weiterhin investiert, ", "Fondsname unverändert"],
-      right_renamed: ["Weiterhin investiert, ", "Fondsname geändert"],
+      right_esi:     ["Weiterhin investiert,", "Fondsname unverändert"],
+      right_renamed: ["Weiterhin investiert,", "Fondsname geändert"],
       right_divested:["Verkauft"],
     };
 
@@ -162,11 +163,13 @@
       return `${fmtDE.format(v)} Mil. €`;
     }
 
-    // SVG setup
+    // ---------- SVG setup ----------
     const svgRoot = d3.select("#chart")
       .append("svg")
         .attr("viewBox", `0 0 ${fullW} ${fullH}`)
-        .attr("preserveAspectRatio", "xMinYMin meet");
+        .attr("preserveAspectRatio", "xMinYMin meet")
+        // IMPORTANT: bake the font into the SVG so exports keep it
+        .attr("font-family", "Verdana, sans-serif");
 
     const svg = svgRoot.append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
@@ -213,6 +216,7 @@
       ]).then(([nodesRaw, linksRaw]) => {
         const N = nodesRaw.length;
 
+        // duplicate nodes left/right + carry extra field
         const sankeyNodes = nodesRaw
           .map(d => ({
             name: (d.kategorie || "").trim(),
@@ -285,6 +289,7 @@
         const rightX = d3.max(rightNodes, d => d.x1);
 
         svg.append("text")
+          .attr("class", "col-heading")
           .attr("x", leftX)
           .attr("y", -15)
           .attr("text-anchor", "start")
@@ -293,6 +298,7 @@
           .text("Vor ESMA-Leitlinien");
 
         svg.append("text")
+          .attr("class", "col-heading")
           .attr("x", rightX - 6)
           .attr("y", -15)
           .attr("text-anchor", "end")
@@ -347,7 +353,7 @@
             .attr("data-value", d => d.value)
             .attr("data-preisbereinigt", d => Number.isFinite(d.preisbereinigt) ? d.preisbereinigt : "")
             .each(function(d) {
-              const x = (d.col==="L") ? -12 : (width + 12);
+              const x = (d.col === "L") ? -12 : (width + 12);
               setMultilineText(d3.select(this), labelLines(d.name), x);
             });
 
@@ -367,7 +373,18 @@
       URL.revokeObjectURL(url);
     }
 
-    // Keep your previous approach (works), but is heavy; OK for small SVGs
+    function injectExportStyles(svgElClone) {
+      // ensure font + bold heading class survive outside the browser CSS
+      svgElClone.setAttribute("font-family", "Verdana, sans-serif");
+
+      const styleEl = document.createElementNS("http://www.w3.org/2000/svg", "style");
+      styleEl.textContent = `
+        text { font-family: Verdana, sans-serif; }
+        .col-heading { font-weight: 700; }
+      `;
+      svgElClone.insertBefore(styleEl, svgElClone.firstChild);
+    }
+
     function inlineComputedStyles(svgEl) {
       const all = svgEl.querySelectorAll("*");
       all.forEach(el => {
@@ -378,10 +395,7 @@
       });
     }
 
-    // Put numbers AFTER the full label:
-    // - if label has 2 lines -> add ": number" to the LAST label line
-    // - single-line labels -> add ": number" to that line
-    // - add Preisbereinigt as extra line (same font size as labels)
+    // Put numbers AFTER the entire label (last line), not after first line
     function addNumbersToClonedSVG(svgElClone) {
       const labelTexts = svgElClone.querySelectorAll("text.outside-label");
 
@@ -392,24 +406,29 @@
         const pbRaw = t.getAttribute("data-preisbereinigt");
         const preisbereinigt = pbRaw === "" ? NaN : Number(pbRaw);
 
-        const tspans = Array.from(t.querySelectorAll("tspan"));
+        const tspans = t.querySelectorAll("tspan");
         if (tspans.length === 0) return;
 
-        // Append number to LAST label line (so not after "Weiterhin investiert", but after "Fondsname ...")
-        const lastLabelLine = tspans[tspans.length - 1];
-        const labelText = (lastLabelLine.textContent || "").trimEnd();
-        lastLabelLine.textContent = `${labelText}: ${formatMio(value)}`;
+        // Append ": X" to the LAST line of the label
+        const last = tspans[tspans.length - 1];
+        const lineLast = last.textContent || "";
+        last.textContent = `${lineLast}: ${formatMio(value)}`;
 
         // Add Preisbereinigt line for right_divested on right
         if (col === "R" && name === "right_divested" && Number.isFinite(preisbereinigt)) {
-          const x = lastLabelLine.getAttribute("x") || t.getAttribute("x") || "0";
+          const x = last.getAttribute("x") || tspans[0].getAttribute("x");
           const tspanPB = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
           tspanPB.setAttribute("x", x);
           tspanPB.setAttribute("dy", "1.15em");
-          // same font size as labels -> DO NOT set smaller font-size
+          tspanPB.style.fontSize = "10px";
           tspanPB.textContent = `Preisbereinigt: ${formatMio(preisbereinigt)}`;
           t.appendChild(tspanPB);
         }
+      });
+
+      // Ensure headings are bold (even if styles get lost)
+      svgElClone.querySelectorAll("text.col-heading").forEach(h => {
+        h.style.fontWeight = "700";
       });
     }
 
@@ -428,14 +447,14 @@
 
     function downloadSVGWithNumbers(filename) {
       const svgEl = d3.select("#chart").select("svg").node();
-      const rect = svgEl.getBoundingClientRect();
-
       const clone = svgEl.cloneNode(true);
 
-      // IMPORTANT: fix export size to match browser rendering
+      // Set explicit pixel size so SVG viewers don't default weirdly
+      const rect = svgEl.getBoundingClientRect();
       clone.setAttribute("width", rect.width);
       clone.setAttribute("height", rect.height);
 
+      injectExportStyles(clone);
       inlineComputedStyles(clone);
       addNumbersToClonedSVG(clone);
 
@@ -446,14 +465,17 @@
 
     function downloadPNGWithNumbers(filename, scale = 4) {
       const svgEl = d3.select("#chart").select("svg").node();
-      const rect = svgEl.getBoundingClientRect();
-
       const clone = svgEl.cloneNode(true);
 
-      // IMPORTANT: fix export size to match browser rendering
-      clone.setAttribute("width", rect.width);
-      clone.setAttribute("height", rect.height);
+      // Use viewBox size as "natural size" for rasterization
+      const vb = svgEl.viewBox && svgEl.viewBox.baseVal ? svgEl.viewBox.baseVal : null;
+      const w = vb ? vb.width : 1240;
+      const h = vb ? vb.height : 500;
 
+      clone.setAttribute("width", w);
+      clone.setAttribute("height", h);
+
+      injectExportStyles(clone);
       inlineComputedStyles(clone);
       addNumbersToClonedSVG(clone);
 
@@ -464,16 +486,15 @@
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        canvas.width = Math.round(rect.width * scale);
-        canvas.height = Math.round(rect.height * scale);
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
 
         const ctx = canvas.getContext("2d");
-
-        // White background (good for PDF)
+        // white background
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw the SVG stretched to fill the canvas
+        // Draw scaled image
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         canvas.toBlob(blob => {
@@ -500,8 +521,7 @@
     });
 
     document.getElementById("btnPng").addEventListener("click", () => {
-      // scale 4–6 is usually great for PDF
-      downloadPNGWithNumbers(`sankey_${currentPrefix}.png`, 5);
+      downloadPNGWithNumbers(`sankey_${currentPrefix}.png`, 4);
     });
 
     // initial draw
