@@ -401,13 +401,27 @@
         const tspans = Array.from(t.querySelectorAll("tspan"));
         if (tspans.length === 0) return;
 
-        // Append ": X Mil. €" to the LAST label line (so after "Fondsname ...")
         const last = tspans[tspans.length - 1];
-        last.textContent = `${last.textContent}: ${formatMio(value)}`;
+        const x = last.getAttribute("x") || tspans[0].getAttribute("x") || "0";
 
-        // Add Preisbereinigt line for right_divested on right
+        // --- Rule: number on NEW LINE by default ---
+        // Exceptions: "Verkauft" (right_divested) stays on same line.
+        const inlineNumber = (name === "right_divested");
+
+        if (inlineNumber) {
+          // "Verkauft: 12,3 Mil. €" (same line)
+          last.textContent = `${last.textContent}: ${formatMio(value)}`;
+        } else {
+          // Keep label as-is, then add a new line with the number
+          const tspanNum = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+          tspanNum.setAttribute("x", x);
+          tspanNum.setAttribute("dy", "1.15em");
+          tspanNum.textContent = formatMio(value);
+          t.appendChild(tspanNum);
+        }
+
+        // --- Preisbereinigt: keep SAME LINE with number ---
         if (col === "R" && name === "right_divested" && Number.isFinite(preisbereinigt)) {
-          const x = last.getAttribute("x") || tspans[0].getAttribute("x") || "0";
           const tspanPB = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
           tspanPB.setAttribute("x", x);
           tspanPB.setAttribute("dy", "1.15em");
@@ -416,6 +430,7 @@
         }
       });
     }
+
 
     function serializeSVG(svgEl) {
       const serializer = new XMLSerializer();
