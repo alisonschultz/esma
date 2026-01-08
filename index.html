@@ -59,9 +59,7 @@
       border-radius: 6px;
       color: #333;
     }
-    #downloads button:hover {
-      background: #eeeeee;
-    }
+    #downloads button:hover { background: #eeeeee; }
 
     .link { fill: none; stroke-opacity: 0.5; transition: stroke-opacity 0.2s; }
     .link.highlight { stroke-opacity: 0.9; }
@@ -142,12 +140,10 @@
       "right_divested",
     ];
 
-    // Labels: "Weiterhin investiert – Fondsname ..."
-    // (two lines; dash is in second line to read naturally)
     const labels = {
       left_fossil:   ["Ausgangsbestand"],
-      right_esi:     ["Weiterhin investiert", "– Fondsname unverändert"],
-      right_renamed: ["Weiterhin investiert", "– Fondsname geändert"],
+      right_esi:     ["Weiterhin investiert, ", "Fondsname unverändert"],
+      right_renamed: ["Weiterhin investiert, ", "Fondsname geändert"],
       right_divested:["Verkauft"],
     };
 
@@ -343,6 +339,7 @@
             .attr("dy", "0.35em")
             .attr("text-anchor", d => (d.col === "L" ? "end" : "start"))
             .style("font-size", "12px")
+            .style("font-family", "Verdana, sans-serif")
             .attr("data-name", d => d.name)
             .attr("data-col", d => d.col)
             .attr("data-value", d => d.value)
@@ -377,6 +374,22 @@
       });
     }
 
+    // Force key text styling to survive export (font + bold headings)
+    function forceExportTextStyles(svgElClone) {
+      // Ensure overall font family
+      svgElClone.setAttribute("style", (svgElClone.getAttribute("style") || "") + "font-family:Verdana, sans-serif;");
+
+      // Ensure headings stay bold (sometimes computed style loses it)
+      const texts = svgElClone.querySelectorAll("text");
+      texts.forEach(t => {
+        const txt = (t.textContent || "").trim();
+        if (txt === "Vor ESMA-Leitlinien" || txt === "Aktuellstes Portfolio") {
+          const prev = t.getAttribute("style") || "";
+          t.setAttribute("style", prev + "font-weight:700;font-family:Verdana, sans-serif;");
+        }
+      });
+    }
+
     function addNumbersToClonedSVG(svgElClone) {
       const labelTexts = svgElClone.querySelectorAll("text.outside-label");
 
@@ -390,17 +403,18 @@
         const tspans = t.querySelectorAll("tspan");
         if (tspans.length === 0) return;
 
-        // First line: "LINE0: X"
-        const first = tspans[0];
-        const line0 = first.textContent || "";
-        first.textContent = `${line0}: ${formatMio(value)}`;
+        // Append value to the *last* line (so after "Fondsname unverändert/ geändert")
+        const last = tspans[tspans.length - 1];
+        last.textContent = `${(last.textContent || "").trim()}: ${formatMio(value)}`;
 
         // Add Preisbereinigt line for right_divested on right
         if (col === "R" && name === "right_divested" && Number.isFinite(preisbereinigt)) {
-          const x = first.getAttribute("x");
+          const x = last.getAttribute("x");
           const tspanPB = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
           tspanPB.setAttribute("x", x);
           tspanPB.setAttribute("dy", "1.15em");
+          // same font size as labels (12px) as requested
+          tspanPB.setAttribute("style", "font-size:12px;font-family:Verdana, sans-serif;");
           tspanPB.textContent = `Preisbereinigt: ${formatMio(preisbereinigt)}`;
           t.appendChild(tspanPB);
         }
@@ -425,6 +439,7 @@
       const clone = svgEl.cloneNode(true);
 
       inlineComputedStyles(clone);
+      forceExportTextStyles(clone);
       addNumbersToClonedSVG(clone);
 
       const source = serializeSVG(clone);
@@ -432,11 +447,12 @@
       downloadBlob(blob, filename);
     }
 
-    function downloadPNGWithNumbers(filename, scale = 2) {
+    function downloadPNGWithNumbers(filename, scale = 4) { // <-- bigger PNG
       const svgEl = d3.select("#chart").select("svg").node();
       const clone = svgEl.cloneNode(true);
 
       inlineComputedStyles(clone);
+      forceExportTextStyles(clone);
       addNumbersToClonedSVG(clone);
 
       const svgString = serializeSVG(clone);
@@ -454,6 +470,11 @@
         canvas.height = Math.round(h * scale);
 
         const ctx = canvas.getContext("2d");
+
+        // White background for PDF friendliness
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         ctx.scale(scale, scale);
         ctx.drawImage(img, 0, 0);
 
@@ -481,7 +502,7 @@
     });
 
     document.getElementById("btnPng").addEventListener("click", () => {
-      downloadPNGWithNumbers(`sankey_${currentPrefix}.png`, 2);
+      downloadPNGWithNumbers(`sankey_${currentPrefix}.png`, 4); // scale 4 => big PNG
     });
 
     // initial draw
