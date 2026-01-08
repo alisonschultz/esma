@@ -145,9 +145,9 @@
 
     // German number formatting
     const fmtDE = new Intl.NumberFormat("de-DE", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 1
+      maximumFractionDigits: 0
     });
+
 
     function formatMio(v) {
       return `${fmtDE.format(v)} Mil. €`;
