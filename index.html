@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben</title>
   <meta property="og:title" content="ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben" />
-  <meta property="og:description" content="Diese Grafik betrachtet nur Fonds mit Begriffen wie Nachhaltigkeit, Umwelt oder Impact im Namen. Nach den ESMA-Leitlinien dürfen diese Fonds keine Unternehmen im Portfolio haben, die nach der Paris-aligned Benchmark (PAB) ausgeschlossen sind. Die Grafik zeigt, was sich im Portfolio verändert hat." />
+  <meta property="og:description" content="Diese Grafik betrachtet nur Fonds mit Begriffen wie Nachhaltigkeit, Umwelt oder Impact im Namen. Nach den ESMA-Leitlinien dürfen diese Fonds keine Unternehmen im Portfolio haben, die nach der Paris-aligned Benchmark (PAB) ausgeschlossen sind. Die Grafik zeigt, was sich verändert hat." />
   <meta property="og:image" content="https://alisonschultz.github.io/esma/title_pic.png" />
   <meta property="og:url" content="https://alisonschultz.github.io/esma/" />
 
@@ -18,9 +18,10 @@
       display: flex; flex-direction: column;
       align-items: center; height: 100vh;
     }
-    #controls { margin: 10px; }
+    #controls { margin: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     #controls label { font-size: 14px; margin-right: 6px; }
     #controls select { font-size: 14px; padding: 4px 6px; font-family: Verdana, sans-serif; }
+    #controls button { font-size: 14px; padding: 4px 10px; font-family: Verdana, sans-serif; cursor: pointer; }
 
     .link { fill: none; stroke-opacity: 0.5; transition: stroke-opacity 0.2s; }
     .link.highlight { stroke-opacity: 0.9; }
@@ -77,6 +78,9 @@
       <option value="esi_expansion_gas_fired_power_expansion_100_mw">Firmen mit Ausbau von Gaskraftwerken</option>
       <option value="esi_expansion_oil_fired_power_expansion_100_mw">Firmen mit Ausbau von Ölkraftwerken</option>
     </select>
+
+    <button id="btnSvg" type="button">Download SVG (mit Zahlen)</button>
+    <button id="btnPng" type="button">Download PNG (ohne Zahlen)</button>
   </div>
 
   <div id="chart"></div>
@@ -84,8 +88,8 @@
 
   <script>
     // ---------- dimensions (extra space left/right for outside labels) ----------
-    const margin = { top: 40, right: 240, bottom: 40, left: 240 };
-    const fullW = 1100, fullH = 500;
+    const margin = { top: 40, right: 300, bottom: 40, left: 240 };
+    const fullW = 1200, fullH = 500;
     const width  = fullW  - margin.left - margin.right;
     const height = fullH  - margin.top  - margin.bottom;
 
@@ -104,20 +108,23 @@
       right_divested:["Verkauft"],
     };
 
-    // rounded integer with thousands separator
     const fmtDE0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 
     // SVG setup
-    const svg = d3.select("#chart")
+    const svgRoot = d3.select("#chart")
       .append("svg")
         .attr("viewBox", `0 0 ${fullW} ${fullH}`)
-        .attr("preserveAspectRatio", "xMinYMin meet")
-      .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
+        .attr("preserveAspectRatio", "xMinYMin meet");
+
+    const svg = svgRoot.append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
 
     const tooltip = d3.select("#tooltip");
 
-    // helper to keep tooltip inside viewport
+    function labelToString(name) {
+      return labels[name] ? labels[name].join(" ") : name;
+    }
+
     function positionTooltip(e) {
       const tt = tooltip.node();
       const padding = 6;
@@ -133,7 +140,6 @@
         .style("top", (e.pageY - 6) + "px");
     }
 
-    // helper: write multi-line SVG text via tspans
     function setMultilineText(textSel, lines, x, lineDy = 1.15) {
       textSel.selectAll("tspan").remove();
       lines.forEach((line, i) => {
@@ -144,11 +150,11 @@
       });
     }
 
-    function labelToString(name) {
-      return labels[name] ? labels[name].join(" ") : name;
-    }
+    // We'll store the current prefix for filenames
+    let currentPrefix = d3.select("#amSelect").property("value");
 
     function loadChart(prefix) {
+      currentPrefix = prefix;
       svg.selectAll("*").remove();
 
       const sankeyGen = d3.sankey()
@@ -164,7 +170,7 @@
       ]).then(([nodesRaw, linksRaw]) => {
         const N = nodesRaw.length;
 
-        // duplicate nodes left/right + carry extra field (preisbereinigt_mio)
+        // duplicate nodes left/right + carry extra field preisbereinigt_mio
         const sankeyNodes = nodesRaw
           .map(d => ({
             name: (d.kategorie || "").trim(),
@@ -181,7 +187,6 @@
             }))
           );
 
-        // build links
         const sankeyLinks = linksRaw
           .map(d => {
             const s = nodesRaw.findIndex(n => (n.kategorie || "").trim() === (d.source_kategorie || "").trim());
@@ -190,10 +195,7 @@
           })
           .filter(d => d);
 
-        const { nodes: Gnodes, links: Glinks } = sankeyGen({
-          nodes: sankeyNodes,
-          links: sankeyLinks
-        });
+        const { nodes: Gnodes, links: Glinks } = sankeyGen({ nodes: sankeyNodes, links: sankeyLinks });
 
         // gradients
         const defs = svg.append("defs");
@@ -211,7 +213,7 @@
             .attr("stop-color", sankeyNodes[link.target.index].color);
         });
 
-        // draw links
+        // links
         svg.append("g")
           .selectAll("path")
           .data(Glinks)
@@ -223,9 +225,7 @@
             .on("mouseover",(e,d)=>{
               svg.classed("dimmed",true);
               d3.select(e.currentTarget).classed("highlight",true);
-
-              let html = `${fmtDE0.format(d.value)} Mil. €`;
-              tooltip.style("opacity",1).html(html);
+              tooltip.style("opacity",1).html(`${fmtDE0.format(d.value)} Mil. €`);
               positionTooltip(e);
             })
             .on("mousemove", positionTooltip)
@@ -235,10 +235,9 @@
               tooltip.style("opacity",0);
             });
 
-        // draw only nodes with flow
         const visibleNodes = Gnodes.filter(d => d.value > 0);
 
-        // column headings
+        // headings
         const leftNodes  = visibleNodes.filter(d => d.col === "L");
         const rightNodes = visibleNodes.filter(d => d.col === "R");
         const leftX  = d3.min(leftNodes,  d => d.x0);
@@ -260,6 +259,7 @@
           .style("font-weight", "bold")
           .text("Aktuellstes Portfolio");
 
+        // nodes
         const node = svg.append("g")
           .selectAll("g")
           .data(visibleNodes)
@@ -273,6 +273,7 @@
               const labelStr = labelToString(d.name);
               let html = `${labelStr}: ${fmtDE0.format(d.value)} Mil. €`;
 
+              // Preisbereinigt NUR im Tooltip online (nicht als Label)
               if (d.col === "R" && d.name === "right_divested" && Number.isFinite(d.preisbereinigt)) {
                 html += `<br><span style="font-size:11px">Preisbereinigt: ${fmtDE0.format(d.preisbereinigt)} Mil. €</span>`;
               }
@@ -292,44 +293,167 @@
           .attr("height", d => d.y1 - d.y0)
           .attr("fill", d => d.color);
 
-        // ---- OUTSIDE LABELS (left and right margins) ----
-        // ---- OUTSIDE LABELS (absolute positioning, NOT inside node groups) ----
+        // OUTSIDE LABELS (no numbers online)
         const labelsLayer = svg.append("g").attr("class", "outside-labels");
 
         labelsLayer.selectAll("text")
           .data(visibleNodes)
           .enter().append("text")
-            .attr("x", d => (d.col === "L" ? -12 : width + 12))              // fixed left/right columns
-            .attr("y", d => (d.y0 + d.y1) / 2)                               // absolute y in chart coords
+            .attr("class", "outside-label")
+            .attr("x", d => (d.col === "L" ? -12 : width + 12))
+            .attr("y", d => (d.y0 + d.y1) / 2)
             .attr("dy", "0.35em")
             .attr("text-anchor", d => (d.col === "L" ? "end" : "start"))
             .style("font-size", "12px")
+            // store values as attributes so we can add them only when exporting SVG
+            .attr("data-name", d => d.name)
+            .attr("data-col", d => d.col)
+            .attr("data-value", d => d.value)
+            .attr("data-preisbereinigt", d => Number.isFinite(d.preisbereinigt) ? d.preisbereinigt : "")
             .each(function(d) {
               const x = (d.col === "L") ? -12 : (width + 12);
-
               const baseLines = labels[d.name] || [d.name];
               setMultilineText(d3.select(this), baseLines, x);
-
-              // Extra line only for right_divested on the RIGHT column
-              if (d.col === "R" && d.name === "right_divested" && Number.isFinite(d.preisbereinigt)) {
-                d3.select(this)
-                  .append("tspan")
-                  .attr("x", x)
-                  .attr("dy", "1.15em")
-                  .style("font-size", "10px")
-                  .text(`Preisbereinigt: ${fmtDE0.format(d.preisbereinigt)} Mil. €`);
-              }
             });
-
 
       })
       .catch(err => console.error("Failed to load CSVs or build sankey:", err));
     }
 
+    // ---------- Export helpers ----------
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function inlineComputedStyles(svgEl) {
+      const all = svgEl.querySelectorAll("*");
+      all.forEach(el => {
+        const cs = getComputedStyle(el);
+        let style = "";
+        for (const prop of cs) {
+          style += `${prop}:${cs.getPropertyValue(prop)};`;
+        }
+        el.setAttribute("style", style);
+      });
+    }
+
+    function addNumbersToClonedSVG(svgElClone) {
+      // Add numeric lines ONLY to the cloned SVG, leaving the browser view untouched.
+      const labelTexts = svgElClone.querySelectorAll("text.outside-label");
+
+      labelTexts.forEach(t => {
+        const name = t.getAttribute("data-name");
+        const col = t.getAttribute("data-col");
+        const value = Number(t.getAttribute("data-value"));
+        const pbRaw = t.getAttribute("data-preisbereinigt");
+        const preisbereinigt = pbRaw === "" ? NaN : Number(pbRaw);
+
+        // We append numbers as additional tspans
+        // First numeric line: value
+        const x = (col === "L") ? -12 : (width + 12);
+
+        const tspanVal = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspanVal.setAttribute("x", x);
+        tspanVal.setAttribute("dy", "1.15em");
+        tspanVal.setAttribute("style", "font-size:11px; font-weight:normal;");
+        tspanVal.textContent = `${fmtDE0.format(value)} Mil. €`;
+        t.appendChild(tspanVal);
+
+        // Extra line only for right_divested on the RIGHT: Preisbereinigt
+        if (col === "R" && name === "right_divested" && Number.isFinite(preisbereinigt)) {
+          const tspanPB = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+          tspanPB.setAttribute("x", x);
+          tspanPB.setAttribute("dy", "1.15em");
+          tspanPB.setAttribute("style", "font-size:10px; font-weight:normal;");
+          tspanPB.textContent = `Preisbereinigt: ${fmtDE0.format(preisbereinigt)} Mil. €`;
+          t.appendChild(tspanPB);
+        }
+      });
+    }
+
+    function downloadSVGWithNumbers(filename) {
+      const svgEl = d3.select("#chart").select("svg").node();
+      const clone = svgEl.cloneNode(true);
+
+      // make CSS deterministic
+      inlineComputedStyles(clone);
+
+      // add numbers only into the clone
+      addNumbersToClonedSVG(clone);
+
+      const serializer = new XMLSerializer();
+      let source = serializer.serializeToString(clone);
+
+      if (!source.match(/^<svg[^>]+xmlns=/)) {
+        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      if (!source.match(/^<svg[^>]+"http:\/\/www.w3.org\/1999\/xlink"/)) {
+        source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+      }
+
+      const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+      downloadBlob(blob, filename);
+    }
+
+    function downloadPNGWithoutNumbers(filename, scale = 2) {
+      const svgEl = d3.select("#chart").select("svg").node();
+      const clone = svgEl.cloneNode(true);
+      inlineComputedStyles(clone);
+
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(clone);
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        const vb = svgEl.viewBox.baseVal;
+        const w = (vb && vb.width) ? vb.width : svgEl.clientWidth;
+        const h = (vb && vb.height) ? vb.height : svgEl.clientHeight;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+
+        canvas.toBlob(blob => {
+          downloadBlob(blob, filename);
+          URL.revokeObjectURL(url);
+        }, "image/png");
+      };
+
+      img.onerror = (e) => {
+        console.error("PNG export failed", e);
+        URL.revokeObjectURL(url);
+      };
+
+      img.src = url;
+    }
+
+    // ---------- wire up ----------
     d3.select("#amSelect").on("change", function() {
       loadChart(this.value);
     });
 
+    document.getElementById("btnSvg").addEventListener("click", () => {
+      downloadSVGWithNumbers(`sankey_${currentPrefix}.svg`);
+    });
+
+    document.getElementById("btnPng").addEventListener("click", () => {
+      downloadPNGWithoutNumbers(`sankey_${currentPrefix}.png`, 2);
+    });
+
+    // initial draw
     loadChart(d3.select("#amSelect").property("value"));
   </script>
 </body>
