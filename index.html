@@ -41,7 +41,6 @@
     #chart { flex: 1; width: 100%; }
     svg { width: 100%; height: 100%; }
 
-    /* dezentere Download-Buttons unter dem Chart */
     #downloads {
       margin: 6px 0 12px;
       display: flex;
@@ -127,40 +126,36 @@
   <div class="tooltip" id="tooltip"></div>
 
   <script>
-    // ---------- dimensions (extra space left/right for outside labels) ----------
+    // ---------- dimensions ----------
     const margin = { top: 40, right: 330, bottom: 40, left: 260 };
     const fullW = 1240, fullH = 500;
     const width  = fullW  - margin.left - margin.right;
     const height = fullH  - margin.top  - margin.bottom;
 
-    const order = [
-      "left_fossil",
-      "right_esi",
-      "right_renamed",
-      "right_divested",
-    ];
+    const order = ["left_fossil", "right_esi", "right_renamed", "right_divested"];
 
-    // Labels shown OUTSIDE the sankey (no numbers in browser)
+    // Base labels (divested gets replaced to Zugekauft when needed)
     const labels = {
       left_fossil:   ["Ausgangsbestand"],
       right_esi:     ["Weiterhin investiert,", "Fondsname unverändert"],
       right_renamed: ["Weiterhin investiert,", "Fondsname geändert"],
       right_divested:["Verkauft"],
+      right_bought:  ["Zugekauft"], // used when divested is negative
     };
 
-    // German number formatting (Tausenderpunkt, Dezimalkomma)
+    // German number formatting
     const fmtDE = new Intl.NumberFormat("de-DE", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 1
     });
 
-    function labelLines(name) {
-      return labels[name] ? labels[name].slice() : [name];
-    }
-
-    // value is in Mio. EUR already (as in your CSVs)
     function formatMio(v) {
       return `${fmtDE.format(v)} Mil. €`;
+    }
+
+    function labelLines(name, isBuy = false) {
+      if (name === "right_divested" && isBuy) return labels.right_bought.slice();
+      return labels[name] ? labels[name].slice() : [name];
     }
 
     // SVG setup
@@ -214,31 +209,59 @@
       ]).then(([nodesRaw, linksRaw]) => {
         const N = nodesRaw.length;
 
-        // Duplicate nodes left/right + carry preisbereinigt_mio if present
+        // Map: display_mio per category
+        const displayByName = new Map(
+          nodesRaw.map(d => [String(d.kategorie || "").trim(), +d.display_mio])
+        );
+
+        // Determine if divested is "buy" based on LINKS value (signed)
+        const divLink = linksRaw.find(d => String(d.target_kategorie || "").trim() === "right_divested");
+        const divIsBuy = divLink ? (+divLink.value < 0) : false;
+
+        // Build sankey nodes (duplicate left/right)
         const sankeyNodes = nodesRaw
           .map(d => ({
-            name: (d.kategorie || "").trim(),
+            name: String(d.kategorie || "").trim(),
             color: d.color,
             col: "L",
-            preisbereinigt: +d.preisbereinigt_mio
+            display: +d.display_mio
           }))
           .concat(
             nodesRaw.map(d => ({
-              name: (d.kategorie || "").trim(),
+              name: String(d.kategorie || "").trim(),
               color: d.color,
               col: "R",
-              preisbereinigt: +d.preisbereinigt_mio
+              display: +d.display_mio
             }))
           );
 
-        // Build links
+        // Build links (IMPORTANT: d3-sankey can't handle negative widths -> convert to abs for geometry)
+        // Keep signed value separately for logic/labels.
         const sankeyLinks = linksRaw
           .map(d => {
-            const s = nodesRaw.findIndex(n => (n.kategorie || "").trim() === (d.source_kategorie || "").trim());
-            const t = nodesRaw.findIndex(n => (n.kategorie || "").trim() === (d.target_kategorie || "").trim());
-            return (s < 0 || t < 0) ? null : { source: s, target: N + t, value: +d.value };
+            const sName = String(d.source_kategorie || "").trim();
+            const tName = String(d.target_kategorie || "").trim();
+            const s = nodesRaw.findIndex(n => String(n.kategorie || "").trim() === sName);
+            const t = nodesRaw.findIndex(n => String(n.kategorie || "").trim() === tName);
+            if (s < 0 || t < 0) return null;
+
+            const signed = +d.value;
+            return {
+              source: s,
+              target: N + t,
+              value: Math.abs(signed),   // geometry
+              signedValue: signed,       // logic
+              targetName: tName
+            };
           })
-          .filter(d => d);
+          .filter(Boolean);
+
+        // If divested is negative (=buy), recolor that link + node to brown
+        if (divIsBuy) {
+          const brown = "#5A3C2E";
+          sankeyLinks.forEach(L => { if (L.targetName === "right_divested") L._forceColor = brown; });
+          sankeyNodes.forEach(n => { if (n.name === "right_divested") n.color = brown; });
+        }
 
         const { nodes: Gnodes, links: Glinks } = sankeyGen({ nodes: sankeyNodes, links: sankeyLinks });
         const visibleNodes = Gnodes.filter(d => d.value > 0);
@@ -246,17 +269,17 @@
         // Gradients
         const defs = svg.append("defs");
         Glinks.forEach((link,i) => {
+          const srcColor = sankeyNodes[link.source.index].color;
+          const tgtColor = link._forceColor || sankeyNodes[link.target.index].color;
+
           const grad = defs.append("linearGradient")
             .attr("id", `grad${i}`)
             .attr("gradientUnits", "userSpaceOnUse")
             .attr("x1", link.source.x1)
             .attr("x2", link.target.x0);
 
-          grad.append("stop").attr("offset","0%")
-            .attr("stop-color", sankeyNodes[link.source.index].color);
-
-          grad.append("stop").attr("offset","100%")
-            .attr("stop-color", sankeyNodes[link.target.index].color);
+          grad.append("stop").attr("offset","0%").attr("stop-color", srcColor);
+          grad.append("stop").attr("offset","100%").attr("stop-color", tgtColor);
         });
 
         // Links (tooltip only)
@@ -271,7 +294,10 @@
             .on("mouseover",(e,d)=>{
               svg.classed("dimmed",true);
               d3.select(e.currentTarget).classed("highlight",true);
-              tooltip.style("opacity",1).html(`${formatMio(d.value)}`);
+
+              // Find signed value stored in original link datum (same index order)
+              const signed = (d.signedValue !== undefined) ? d.signedValue : d.value;
+              tooltip.style("opacity",1).html(`${formatMio(Math.abs(signed))}`);
               positionTooltip(e);
             })
             .on("mousemove", positionTooltip)
@@ -281,7 +307,7 @@
               tooltip.style("opacity",0);
             });
 
-        // Column headings (bold)
+        // Headings (bold)
         const leftNodes  = visibleNodes.filter(d => d.col === "L");
         const rightNodes = visibleNodes.filter(d => d.col === "R");
         const leftX  = d3.min(leftNodes,  d => d.x0);
@@ -316,11 +342,11 @@
               svg.classed("dimmed",true);
               d3.select(e.currentTarget).classed("highlight",true);
 
-              let html = `${labelLines(d.name).join(" ")}: ${formatMio(d.value)}`;
-              if (d.col === "R" && d.name === "right_divested" && Number.isFinite(d.preisbereinigt)) {
-                html += `<br><span>Preisbereinigt: ${formatMio(d.preisbereinigt)}</span>`;
-              }
-              tooltip.style("opacity",1).html(html);
+              const isBuy = (d.name === "right_divested" && divIsBuy);
+              const shownLabel = labelLines(d.name, isBuy).join(" ");
+              const displayVal = Number.isFinite(d.display) ? d.display : Math.abs(d.value);
+
+              tooltip.style("opacity",1).html(`${shownLabel}: ${formatMio(displayVal)}`);
               positionTooltip(e);
             })
             .on("mousemove", positionTooltip)
@@ -335,7 +361,7 @@
           .attr("height", d => d.y1 - d.y0)
           .attr("fill", d => d.color);
 
-        // OUTSIDE LABELS (browser: label only, no numbers)
+        // OUTSIDE LABELS (browser: label only)
         const labelsLayer = svg.append("g").attr("class", "outside-labels");
 
         labelsLayer.selectAll("text")
@@ -344,17 +370,21 @@
             .attr("class", "outside-label")
             .attr("x", d => (d.col === "L" ? -12 : width + 12))
             .attr("y", d => (d.y0 + d.y1) / 2)
-            .attr("dy", "0.35em")
             .attr("text-anchor", d => (d.col === "L" ? "end" : "start"))
             .style("font-family", "Verdana, sans-serif")
             .style("font-size", "12px")
+            .style("dominant-baseline", "middle")  // <-- vertical centering consistent
             .attr("data-name", d => d.name)
             .attr("data-col", d => d.col)
-            .attr("data-value", d => d.value)
-            .attr("data-preisbereinigt", d => Number.isFinite(d.preisbereinigt) ? d.preisbereinigt : "")
+            .attr("data-display", d => {
+              const v = displayByName.get(d.name);
+              return Number.isFinite(v) ? v : Math.abs(d.value);
+            })
+            .attr("data-isbuy", d => (d.name === "right_divested" && divIsBuy) ? "1" : "0")
             .each(function(d) {
               const x = (d.col === "L") ? -12 : (width + 12);
-              setMultilineText(d3.select(this), labelLines(d.name), x);
+              const isBuy = (d.name === "right_divested" && divIsBuy);
+              setMultilineText(d3.select(this), labelLines(d.name, isBuy), x);
             });
       })
       .catch(err => console.error("Failed to load CSVs or build sankey:", err));
@@ -372,31 +402,27 @@
       URL.revokeObjectURL(url);
     }
 
-    // For exports: DO NOT inline computed styles (causes font-size mismatches).
-    // Instead inject a stable style block to match the browser.
     function injectExportStyles(svgElClone) {
       svgElClone.setAttribute("font-family", "Verdana, sans-serif");
-
       const styleEl = document.createElementNS("http://www.w3.org/2000/svg", "style");
       styleEl.textContent = `
         text { font-family: Verdana, sans-serif; font-size: 12px; }
-        text.outside-label { font-size: 12px; }
+        text.outside-label { font-size: 12px; dominant-baseline: middle; }
         text.col-heading { font-size: 12px; font-weight: 700; }
       `;
       svgElClone.insertBefore(styleEl, svgElClone.firstChild);
     }
 
-    // For exports: add numbers after the ENTIRE label
-    // (i.e., after the last tspan of the label)
+    // NEW rule:
+    // - In export, numbers are on their own line for ALL labels
+    //   EXCEPT Verkauft/Zugekauft which stay "Label: X" on one line.
     function addNumbersToClonedSVG(svgElClone) {
       const labelTexts = svgElClone.querySelectorAll("text.outside-label");
 
       labelTexts.forEach(t => {
         const name = t.getAttribute("data-name");
-        const col = t.getAttribute("data-col");
-        const value = Number(t.getAttribute("data-value"));
-        const pbRaw = t.getAttribute("data-preisbereinigt");
-        const preisbereinigt = pbRaw === "" ? NaN : Number(pbRaw);
+        const isBuy = t.getAttribute("data-isbuy") === "1";
+        const displayVal = Math.abs(Number(t.getAttribute("data-display")));
 
         const tspans = Array.from(t.querySelectorAll("tspan"));
         if (tspans.length === 0) return;
@@ -404,33 +430,23 @@
         const last = tspans[tspans.length - 1];
         const x = last.getAttribute("x") || tspans[0].getAttribute("x") || "0";
 
-        // --- Rule: number on NEW LINE by default ---
-        // Exceptions: "Verkauft" (right_divested) stays on same line.
-        const inlineNumber = (name === "right_divested");
+        const oneLine = (name === "right_divested"); // Verkauft/Zugekauft: one line
 
-        if (inlineNumber) {
-          // "Verkauft: 12,3 Mil. €" (same line)
-          last.textContent = `${last.textContent}: ${formatMio(value)}`;
-        } else {
-          // Keep label as-is, then add a new line with the number
-          const tspanNum = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-          tspanNum.setAttribute("x", x);
-          tspanNum.setAttribute("dy", "1.15em");
-          tspanNum.textContent = formatMio(value);
-          t.appendChild(tspanNum);
+        if (oneLine) {
+          // "Verkauft: X" OR "Zugekauft: X"
+          last.textContent = `${last.textContent}: ${formatMio(displayVal)}`;
+          return;
         }
 
-        // --- Preisbereinigt: keep SAME LINE with number ---
-        if (col === "R" && name === "right_divested" && Number.isFinite(preisbereinigt)) {
-          const tspanPB = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-          tspanPB.setAttribute("x", x);
-          tspanPB.setAttribute("dy", "1.15em");
-          tspanPB.textContent = `Preisbereinigt: ${formatMio(preisbereinigt)}`;
-          t.appendChild(tspanPB);
-        }
+        // Otherwise: add number on a new line (NO colon on label line)
+        // (keep label lines intact, just append a number-only line)
+        const tspanNum = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspanNum.setAttribute("x", x);
+        tspanNum.setAttribute("dy", "1.15em");
+        tspanNum.textContent = `${formatMio(displayVal)}`;
+        t.appendChild(tspanNum);
       });
     }
-
 
     function serializeSVG(svgEl) {
       const serializer = new XMLSerializer();
@@ -449,7 +465,6 @@
       const svgEl = d3.select("#chart").select("svg").node();
       const clone = svgEl.cloneNode(true);
 
-      // ensure explicit size
       const vb = svgEl.viewBox && svgEl.viewBox.baseVal ? svgEl.viewBox.baseVal : null;
       if (vb) {
         clone.setAttribute("width", vb.width);
@@ -492,7 +507,6 @@
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // draw scaled to fill the entire canvas (no tiny chart in corner)
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         canvas.toBlob(blob => {
