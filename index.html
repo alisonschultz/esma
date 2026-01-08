@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben</title>
   <meta property="og:title" content="ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben" />
   <meta property="og:description" content="Diese Grafik betrachtet nur Fonds mit Begriffen wie Nachhaltigkeit, Umwelt oder Impact im Namen. Nach den ESMA-Leitlinien dürfen diese Fonds keine Unternehmen im Portfolio haben, die nach der Paris-aligned Benchmark (PAB) ausgeschlossen sind. Die Grafik zeigt, was sich verändert hat." />
@@ -59,7 +59,9 @@
       border-radius: 6px;
       color: #333;
     }
-    #downloads button:hover { background: #eeeeee; }
+    #downloads button:hover {
+      background: #eeeeee;
+    }
 
     .link { fill: none; stroke-opacity: 0.5; transition: stroke-opacity 0.2s; }
     .link.highlight { stroke-opacity: 0.9; }
@@ -117,7 +119,6 @@
 
   <div id="chartWrap">
     <div id="chart"></div>
-
     <div id="downloads" aria-label="downloads">
       <button id="btnSvg" type="button">SVG herunterladen</button>
       <button id="btnPng" type="button">PNG herunterladen</button>
@@ -140,6 +141,7 @@
       "right_divested",
     ];
 
+    // Two-line labels on the right
     const labels = {
       left_fossil:   ["Ausgangsbestand"],
       right_esi:     ["Weiterhin investiert, ", "Fondsname unverändert"],
@@ -238,6 +240,7 @@
         const { nodes: Gnodes, links: Glinks } = sankeyGen({ nodes: sankeyNodes, links: sankeyLinks });
         const visibleNodes = Gnodes.filter(d => d.value > 0);
 
+        // gradients
         const defs = svg.append("defs");
         Glinks.forEach((link,i) => {
           const grad = defs.append("linearGradient")
@@ -339,15 +342,15 @@
             .attr("dy", "0.35em")
             .attr("text-anchor", d => (d.col === "L" ? "end" : "start"))
             .style("font-size", "12px")
-            .style("font-family", "Verdana, sans-serif")
             .attr("data-name", d => d.name)
             .attr("data-col", d => d.col)
             .attr("data-value", d => d.value)
             .attr("data-preisbereinigt", d => Number.isFinite(d.preisbereinigt) ? d.preisbereinigt : "")
             .each(function(d) {
-              const x = (d.col === "L") ? -12 : (width + 12);
+              const x = (d.col==="L") ? -12 : (width + 12);
               setMultilineText(d3.select(this), labelLines(d.name), x);
             });
+
       })
       .catch(err => console.error("Failed to load CSVs or build sankey:", err));
     }
@@ -364,6 +367,7 @@
       URL.revokeObjectURL(url);
     }
 
+    // Keep your previous approach (works), but is heavy; OK for small SVGs
     function inlineComputedStyles(svgEl) {
       const all = svgEl.querySelectorAll("*");
       all.forEach(el => {
@@ -374,22 +378,10 @@
       });
     }
 
-    // Force key text styling to survive export (font + bold headings)
-    function forceExportTextStyles(svgElClone) {
-      // Ensure overall font family
-      svgElClone.setAttribute("style", (svgElClone.getAttribute("style") || "") + "font-family:Verdana, sans-serif;");
-
-      // Ensure headings stay bold (sometimes computed style loses it)
-      const texts = svgElClone.querySelectorAll("text");
-      texts.forEach(t => {
-        const txt = (t.textContent || "").trim();
-        if (txt === "Vor ESMA-Leitlinien" || txt === "Aktuellstes Portfolio") {
-          const prev = t.getAttribute("style") || "";
-          t.setAttribute("style", prev + "font-weight:700;font-family:Verdana, sans-serif;");
-        }
-      });
-    }
-
+    // Put numbers AFTER the full label:
+    // - if label has 2 lines -> add ": number" to the LAST label line
+    // - single-line labels -> add ": number" to that line
+    // - add Preisbereinigt as extra line (same font size as labels)
     function addNumbersToClonedSVG(svgElClone) {
       const labelTexts = svgElClone.querySelectorAll("text.outside-label");
 
@@ -400,21 +392,21 @@
         const pbRaw = t.getAttribute("data-preisbereinigt");
         const preisbereinigt = pbRaw === "" ? NaN : Number(pbRaw);
 
-        const tspans = t.querySelectorAll("tspan");
+        const tspans = Array.from(t.querySelectorAll("tspan"));
         if (tspans.length === 0) return;
 
-        // Append value to the *last* line (so after "Fondsname unverändert/ geändert")
-        const last = tspans[tspans.length - 1];
-        last.textContent = `${(last.textContent || "").trim()}: ${formatMio(value)}`;
+        // Append number to LAST label line (so not after "Weiterhin investiert", but after "Fondsname ...")
+        const lastLabelLine = tspans[tspans.length - 1];
+        const labelText = (lastLabelLine.textContent || "").trimEnd();
+        lastLabelLine.textContent = `${labelText}: ${formatMio(value)}`;
 
         // Add Preisbereinigt line for right_divested on right
         if (col === "R" && name === "right_divested" && Number.isFinite(preisbereinigt)) {
-          const x = last.getAttribute("x");
+          const x = lastLabelLine.getAttribute("x") || t.getAttribute("x") || "0";
           const tspanPB = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
           tspanPB.setAttribute("x", x);
           tspanPB.setAttribute("dy", "1.15em");
-          // same font size as labels (12px) as requested
-          tspanPB.setAttribute("style", "font-size:12px;font-family:Verdana, sans-serif;");
+          // same font size as labels -> DO NOT set smaller font-size
           tspanPB.textContent = `Preisbereinigt: ${formatMio(preisbereinigt)}`;
           t.appendChild(tspanPB);
         }
@@ -436,10 +428,15 @@
 
     function downloadSVGWithNumbers(filename) {
       const svgEl = d3.select("#chart").select("svg").node();
+      const rect = svgEl.getBoundingClientRect();
+
       const clone = svgEl.cloneNode(true);
 
+      // IMPORTANT: fix export size to match browser rendering
+      clone.setAttribute("width", rect.width);
+      clone.setAttribute("height", rect.height);
+
       inlineComputedStyles(clone);
-      forceExportTextStyles(clone);
       addNumbersToClonedSVG(clone);
 
       const source = serializeSVG(clone);
@@ -447,12 +444,17 @@
       downloadBlob(blob, filename);
     }
 
-    function downloadPNGWithNumbers(filename, scale = 4) { // <-- bigger PNG
+    function downloadPNGWithNumbers(filename, scale = 4) {
       const svgEl = d3.select("#chart").select("svg").node();
+      const rect = svgEl.getBoundingClientRect();
+
       const clone = svgEl.cloneNode(true);
 
+      // IMPORTANT: fix export size to match browser rendering
+      clone.setAttribute("width", rect.width);
+      clone.setAttribute("height", rect.height);
+
       inlineComputedStyles(clone);
-      forceExportTextStyles(clone);
       addNumbersToClonedSVG(clone);
 
       const svgString = serializeSVG(clone);
@@ -461,22 +463,18 @@
 
       const img = new Image();
       img.onload = () => {
-        const vb = svgEl.viewBox.baseVal;
-        const w = (vb && vb.width) ? vb.width : svgEl.clientWidth;
-        const h = (vb && vb.height) ? vb.height : svgEl.clientHeight;
-
         const canvas = document.createElement("canvas");
-        canvas.width = Math.round(w * scale);
-        canvas.height = Math.round(h * scale);
+        canvas.width = Math.round(rect.width * scale);
+        canvas.height = Math.round(rect.height * scale);
 
         const ctx = canvas.getContext("2d");
 
-        // White background for PDF friendliness
+        // White background (good for PDF)
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        ctx.scale(scale, scale);
-        ctx.drawImage(img, 0, 0);
+        // Draw the SVG stretched to fill the canvas
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         canvas.toBlob(blob => {
           downloadBlob(blob, filename);
@@ -502,7 +500,8 @@
     });
 
     document.getElementById("btnPng").addEventListener("click", () => {
-      downloadPNGWithNumbers(`sankey_${currentPrefix}.png`, 4); // scale 4 => big PNG
+      // scale 4–6 is usually great for PDF
+      downloadPNGWithNumbers(`sankey_${currentPrefix}.png`, 5);
     });
 
     // initial draw
