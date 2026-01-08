@@ -182,12 +182,16 @@
       tooltip.style("left", x + "px").style("top", (e.pageY - 6) + "px");
     }
 
-    function setMultilineText(textSel, lines, x, lineDy = 1.15) {
+    // NEW: vertically center a multi-line label around y by shifting the first line upward
+    function setMultilineTextCentered(textSel, lines, x, lineDy = 1.15) {
       textSel.selectAll("tspan").remove();
+      const n = lines.length;
+      const firstDy = (n <= 1) ? 0 : (-(n - 1) / 2) * lineDy;
+
       lines.forEach((line, i) => {
         textSel.append("tspan")
           .attr("x", x)
-          .attr("dy", i === 0 ? 0 : `${lineDy}em`)
+          .attr("dy", i === 0 ? `${firstDy}em` : `${lineDy}em`)
           .text(line);
       });
     }
@@ -235,8 +239,7 @@
             }))
           );
 
-        // Build links (IMPORTANT: d3-sankey can't handle negative widths -> convert to abs for geometry)
-        // Keep signed value separately for logic/labels.
+        // Build links: abs() for geometry; keep signed for logic
         const sankeyLinks = linksRaw
           .map(d => {
             const sName = String(d.source_kategorie || "").trim();
@@ -295,7 +298,6 @@
               svg.classed("dimmed",true);
               d3.select(e.currentTarget).classed("highlight",true);
 
-              // Find signed value stored in original link datum (same index order)
               const signed = (d.signedValue !== undefined) ? d.signedValue : d.value;
               tooltip.style("opacity",1).html(`${formatMio(Math.abs(signed))}`);
               positionTooltip(e);
@@ -346,7 +348,7 @@
               const shownLabel = labelLines(d.name, isBuy).join(" ");
               const displayVal = Number.isFinite(d.display) ? d.display : Math.abs(d.value);
 
-              tooltip.style("opacity",1).html(`${shownLabel}: ${formatMio(displayVal)}`);
+              tooltip.style("opacity",1).html(`${shownLabel}: ${formatMio(Math.abs(displayVal))}`);
               positionTooltip(e);
             })
             .on("mousemove", positionTooltip)
@@ -371,9 +373,9 @@
             .attr("x", d => (d.col === "L" ? -12 : width + 12))
             .attr("y", d => (d.y0 + d.y1) / 2)
             .attr("text-anchor", d => (d.col === "L" ? "end" : "start"))
+            .attr("dominant-baseline", "middle")
             .style("font-family", "Verdana, sans-serif")
             .style("font-size", "12px")
-            .style("dominant-baseline", "middle")  // <-- vertical centering consistent
             .attr("data-name", d => d.name)
             .attr("data-col", d => d.col)
             .attr("data-display", d => {
@@ -384,7 +386,7 @@
             .each(function(d) {
               const x = (d.col === "L") ? -12 : (width + 12);
               const isBuy = (d.name === "right_divested" && divIsBuy);
-              setMultilineText(d3.select(this), labelLines(d.name, isBuy), x);
+              setMultilineTextCentered(d3.select(this), labelLines(d.name, isBuy), x);
             });
       })
       .catch(err => console.error("Failed to load CSVs or build sankey:", err));
@@ -413,15 +415,12 @@
       svgElClone.insertBefore(styleEl, svgElClone.firstChild);
     }
 
-    // NEW rule:
-    // - In export, numbers are on their own line for ALL labels
-    //   EXCEPT Verkauft/Zugekauft which stay "Label: X" on one line.
+    // Export: numbers on own line for all labels EXCEPT Verkauft/Zugekauft ("right_divested")
     function addNumbersToClonedSVG(svgElClone) {
       const labelTexts = svgElClone.querySelectorAll("text.outside-label");
 
       labelTexts.forEach(t => {
         const name = t.getAttribute("data-name");
-        const isBuy = t.getAttribute("data-isbuy") === "1";
         const displayVal = Math.abs(Number(t.getAttribute("data-display")));
 
         const tspans = Array.from(t.querySelectorAll("tspan"));
@@ -433,13 +432,11 @@
         const oneLine = (name === "right_divested"); // Verkauft/Zugekauft: one line
 
         if (oneLine) {
-          // "Verkauft: X" OR "Zugekauft: X"
           last.textContent = `${last.textContent}: ${formatMio(displayVal)}`;
           return;
         }
 
-        // Otherwise: add number on a new line (NO colon on label line)
-        // (keep label lines intact, just append a number-only line)
+        // add number on its own line (no colon)
         const tspanNum = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
         tspanNum.setAttribute("x", x);
         tspanNum.setAttribute("dy", "1.15em");
