@@ -1,5 +1,5 @@
-kategorie,color
-left_fossil,#5A3C2E
-right_fossil,#5A3C2E
-right_renamed,#D2A679
-right_divested,#2F7F4F
+kategorie,color,display_mio
+left_fossil,#5A3C2E,11224.25231487
+right_esi,#5A3C2E,1448.28077958
+right_renamed,#D2A679,6903.39480643
+right_divested,#2F7F4F,1430.324436101019
