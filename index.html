@@ -411,7 +411,6 @@
           const tspanPB = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
           tspanPB.setAttribute("x", x);
           tspanPB.setAttribute("dy", "1.15em");
-          tspanPB.style.fontSize = "11px"; // slightly smaller, but not tiny
           tspanPB.textContent = `Preisbereinigt: ${formatMio(preisbereinigt)}`;
           t.appendChild(tspanPB);
         }
