@@ -344,7 +344,7 @@
 
         // If divested is negative (=buy), recolor that link + node to brown
         if (divIsBuy) {
-          const brown = "#5A3C2E";
+          const brown = "#B23A48";
           sankeyLinks.forEach(L => { if (L.targetName === "right_divested") L._forceColor = brown; });
           sankeyNodes.forEach(n => { if (n.name === "right_divested") n.color = brown; });
         }
