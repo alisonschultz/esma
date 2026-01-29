@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben</title>
   <meta property="og:title" content="ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben" />
-  <meta property="og:description" content="Diese Grafik betrachtet nur Fonds mit Begriffen wie Nachhaltigkeit, Umwelt oder Impact im Namen. Nach den ESMA-Leitlinien dürfen diese Fonds keine Unternehmen im Portfolio haben, die nach der Paris-aligned Benchmark (PAB) ausgeschlossen sind. Die Grafik zeigt, was sich verändert hat." />
+  <meta property="og:description"
+    content="Diese Grafik betrachtet nur Fonds mit Begriffen wie Nachhaltigkeit, Umwelt oder Impact im Namen. Nach den ESMA-Leitlinien dürfen diese Fonds keine Unternehmen im Portfolio haben, die nach der Paris-aligned Benchmark (PAB) ausgeschlossen sind. Die Grafik zeigt, was sich verändert hat." />
   <meta property="og:image" content="https://alisonschultz.github.io/esma/title_pic.png" />
   <meta property="og:url" content="https://alisonschultz.github.io/esma/" />
 
@@ -14,9 +16,12 @@
   <style>
     body {
       font-family: Verdana, sans-serif;
-      margin: 0; padding: 0;
-      display: flex; flex-direction: column;
-      align-items: center; height: 100vh;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
     }
 
     #controls {
@@ -27,8 +32,17 @@
       flex-wrap: wrap;
       justify-content: center;
     }
-    #controls label { font-size: 14px; margin-right: 6px; }
-    #controls select { font-size: 14px; padding: 4px 6px; font-family: Verdana, sans-serif; }
+
+    #controls label {
+      font-size: 14px;
+      margin-right: 6px;
+    }
+
+    #controls select {
+      font-size: 14px;
+      padding: 4px 6px;
+      font-family: Verdana, sans-serif;
+    }
 
     #chartWrap {
       width: 100%;
@@ -38,8 +52,15 @@
       align-items: center;
     }
 
-    #chart { flex: 1; width: 100%; }
-    svg { width: 100%; height: 100%; }
+    #chart {
+      flex: 1;
+      width: 100%;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
 
     #downloads {
       margin: 6px 0 12px;
@@ -48,6 +69,7 @@
       justify-content: center;
       align-items: center;
     }
+
     #downloads button {
       font-size: 12px;
       padding: 4px 10px;
@@ -58,20 +80,45 @@
       border-radius: 6px;
       color: #333;
     }
-    #downloads button:hover { background: #eeeeee; }
 
-    .link { fill: none; stroke-opacity: 0.5; transition: stroke-opacity 0.2s; }
-    .link.highlight { stroke-opacity: 0.9; }
-    .dimmed .link:not(.highlight) { stroke-opacity: 0.3; }
+    #downloads button:hover {
+      background: #eeeeee;
+    }
 
-    .node rect { opacity: 0.6; transition: opacity 0.2s; }
-    .node.highlight rect { opacity: 1 !important; }
-    .dimmed .node rect:not(.highlight) { opacity: 0.3; }
+    .link {
+      fill: none;
+      stroke-opacity: 0.5;
+      transition: stroke-opacity 0.2s;
+    }
+
+    .link.highlight {
+      stroke-opacity: 0.9;
+    }
+
+    .dimmed .link:not(.highlight) {
+      stroke-opacity: 0.3;
+    }
+
+    .node rect {
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+
+    .node.highlight rect {
+      opacity: 1 !important;
+    }
+
+    .dimmed .node rect:not(.highlight) {
+      opacity: 0.3;
+    }
 
     .tooltip {
-      position: absolute; background: lightgrey;
-      padding: 6px; border-radius: 4px;
-      pointer-events: none; opacity: 0;
+      position: absolute;
+      background: lightgrey;
+      padding: 6px;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
       transition: opacity 0.2s;
     }
 
@@ -80,8 +127,17 @@
       margin: 18px auto 6px;
       text-align: center;
     }
-    .header h1 { margin: 0 0 6px; font-size: 20px; }
-    .header p { margin: 0 0 12px; font-size: 14px; line-height: 1.4; }
+
+    .header h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .header p {
+      margin: 0 0 12px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
   </style>
 </head>
 
@@ -89,8 +145,10 @@
   <div class="header">
     <h1>ESMA-Leitlinien für Fondsnamen: Was &raquo;nachhaltige&laquo; Fonds geändert haben</h1>
     <p>
-      Diese Grafik betrachtet Fonds, die Begriffe wie <b>Nachhaltigkeit</b>, <b>Umwelt</b> oder <b>Impact</b> im Namen trugen.
-      Für diese Fonds gelten nach den ESMA-Leitlinien strengere Mindestanforderungen: Bestimmte Unternehmen, die nach der
+      Diese Grafik betrachtet Fonds, die Begriffe wie <b>Nachhaltigkeit</b>, <b>Umwelt</b> oder <b>Impact</b> im Namen
+      trugen.
+      Für diese Fonds gelten nach den ESMA-Leitlinien strengere Mindestanforderungen: Bestimmte Unternehmen, die nach
+      der
       <b>Paris-aligned Benchmark (PAB)</b> ausgeschlossen sind, dürfen nicht mehr im Portfolio enthalten sein.
       Die Sankey-Grafik zeigt, wie sich die Investitionen vor und nach den Leitlinien verändert haben.<br>
       📄 <a href="https://isitchristmas.com/" target="_blank" style="text-decoration: none; color: #006699;">
@@ -103,14 +161,15 @@
     <label for="amSelect">Investments:</label>
     <select id="amSelect">
       <option value="esi_pab">Firmen, die gegen die Paris-aligned Benchmark (PAB) verstoßen</option>
-      <option value="esi_gogcel" selected>Alle Firmen von urgewalds Global Coal Exit List und Global Oil and Gas Exit List</option>
-      <option value="esi_expansion">Firmen, die ihre fossilen Aktivitäten ausbauen</option>
+      <option value="esi_gogcel" selected>Alle Firmen von urgewalds Global Coal Exit List und Global Oil and Gas Exit
+        List</option>
+      <!--<option value="esi_expansion">Firmen, die ihre fossilen Aktivitäten ausbauen</option>
       <option value="esi_expansion_coal_expansion">Firmen mit Kohle-Expansion</option>
       <option value="esi_expansion_short_term_expansion_20_mmboe">Firmen mit kurzfristiger Expansionsaktivität</option>
       <option value="esi_expansion_pipeline_expansion_100_km">Firmen mit Pipeline-Expansion</option>
       <option value="esi_expansion_lng_expansion_1_mtpa">Firmen mit LNG-Expansion</option>
       <option value="esi_expansion_gas_fired_power_expansion_100_mw">Firmen mit Ausbau von Gaskraftwerken</option>
-      <option value="esi_expansion_oil_fired_power_expansion_100_mw">Firmen mit Ausbau von Ölkraftwerken</option>
+      <option value="esi_expansion_oil_fired_power_expansion_100_mw">Firmen mit Ausbau von Ölkraftwerken</option> -->
     </select>
   </div>
 
@@ -129,18 +188,18 @@
     // ---------- dimensions ----------
     const margin = { top: 40, right: 330, bottom: 40, left: 260 };
     const fullW = 1240, fullH = 500;
-    const width  = fullW  - margin.left - margin.right;
-    const height = fullH  - margin.top  - margin.bottom;
+    const width = fullW - margin.left - margin.right;
+    const height = fullH - margin.top - margin.bottom;
 
     const order = ["left_fossil", "right_esi", "right_renamed", "right_divested"];
 
     // Base labels (divested gets replaced to Zugekauft when needed)
     const labels = {
-      left_fossil:   ["Ausgangsbestand"],
-      right_esi:     ["Weiterhin investiert,", "Fondsname unverändert"],
+      left_fossil: ["Ausgangsbestand"],
+      right_esi: ["Weiterhin investiert,", "Fondsname unverändert"],
       right_renamed: ["Weiterhin investiert,", "Fondsname geändert"],
-      right_divested:["Divestment"],
-      right_bought:  ["Zugekauft"], // used when divested is negative
+      right_divested: ["Divestment"],
+      right_bought: ["Zugekauft"], // used when divested is negative
     };
 
     // German number formatting
@@ -161,8 +220,8 @@
     // SVG setup
     const svgRoot = d3.select("#chart")
       .append("svg")
-        .attr("viewBox", `0 0 ${fullW} ${fullH}`)
-        .attr("preserveAspectRatio", "xMinYMin meet");
+      .attr("viewBox", `0 0 ${fullW} ${fullH}`)
+      .attr("preserveAspectRatio", "xMinYMin meet");
 
     const svg = svgRoot.append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
@@ -203,7 +262,7 @@
       const sankeyGen = d3.sankey()
         .nodeWidth(20)
         .nodePadding(10)
-        .extent([[1,1],[width-1,height-1]])
+        .extent([[1, 1], [width - 1, height - 1]])
         .nodeAlign(d3.sankeyJustify)
         .nodeSort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
@@ -271,7 +330,7 @@
 
         // Gradients
         const defs = svg.append("defs");
-        Glinks.forEach((link,i) => {
+        Glinks.forEach((link, i) => {
           const srcColor = sankeyNodes[link.source.index].color;
           const tgtColor = link._forceColor || sankeyNodes[link.target.index].color;
 
@@ -281,8 +340,8 @@
             .attr("x1", link.source.x1)
             .attr("x2", link.target.x0);
 
-          grad.append("stop").attr("offset","0%").attr("stop-color", srcColor);
-          grad.append("stop").attr("offset","100%").attr("stop-color", tgtColor);
+          grad.append("stop").attr("offset", "0%").attr("stop-color", srcColor);
+          grad.append("stop").attr("offset", "100%").attr("stop-color", tgtColor);
         });
 
         // Links (tooltip only)
@@ -290,29 +349,29 @@
           .selectAll("path")
           .data(Glinks)
           .enter().append("path")
-            .attr("class","link")
-            .attr("d", d3.sankeyLinkHorizontal())
-            .attr("stroke-width", d => Math.max(1, d.width))
-            .attr("stroke", (d,i) => `url(#grad${i})`)
-            .on("mouseover",(e,d)=>{
-              svg.classed("dimmed",true);
-              d3.select(e.currentTarget).classed("highlight",true);
+          .attr("class", "link")
+          .attr("d", d3.sankeyLinkHorizontal())
+          .attr("stroke-width", d => Math.max(1, d.width))
+          .attr("stroke", (d, i) => `url(#grad${i})`)
+          .on("mouseover", (e, d) => {
+            svg.classed("dimmed", true);
+            d3.select(e.currentTarget).classed("highlight", true);
 
-              const signed = (d.signedValue !== undefined) ? d.signedValue : d.value;
-              tooltip.style("opacity",1).html(`${formatMio(Math.abs(signed))}`);
-              positionTooltip(e);
-            })
-            .on("mousemove", positionTooltip)
-            .on("mouseout",()=>{
-              svg.classed("dimmed",false);
-              d3.selectAll(".link").classed("highlight",false);
-              tooltip.style("opacity",0);
-            });
+            const signed = (d.signedValue !== undefined) ? d.signedValue : d.value;
+            tooltip.style("opacity", 1).html(`${formatMio(Math.abs(signed))}`);
+            positionTooltip(e);
+          })
+          .on("mousemove", positionTooltip)
+          .on("mouseout", () => {
+            svg.classed("dimmed", false);
+            d3.selectAll(".link").classed("highlight", false);
+            tooltip.style("opacity", 0);
+          });
 
         // Headings (bold)
-        const leftNodes  = visibleNodes.filter(d => d.col === "L");
+        const leftNodes = visibleNodes.filter(d => d.col === "L");
         const rightNodes = visibleNodes.filter(d => d.col === "R");
-        const leftX  = d3.min(leftNodes,  d => d.x0);
+        const leftX = d3.min(leftNodes, d => d.x0);
         const rightX = d3.max(rightNodes, d => d.x1);
 
         svg.append("text")
@@ -338,25 +397,25 @@
           .selectAll("g")
           .data(visibleNodes)
           .enter().append("g")
-            .attr("class", "node")
-            .attr("transform", d => `translate(${d.x0},${d.y0})`)
-            .on("mouseover",(e,d)=>{
-              svg.classed("dimmed",true);
-              d3.select(e.currentTarget).classed("highlight",true);
+          .attr("class", "node")
+          .attr("transform", d => `translate(${d.x0},${d.y0})`)
+          .on("mouseover", (e, d) => {
+            svg.classed("dimmed", true);
+            d3.select(e.currentTarget).classed("highlight", true);
 
-              const isBuy = (d.name === "right_divested" && divIsBuy);
-              const shownLabel = labelLines(d.name, isBuy).join(" ");
-              const displayVal = Number.isFinite(d.display) ? d.display : Math.abs(d.value);
+            const isBuy = (d.name === "right_divested" && divIsBuy);
+            const shownLabel = labelLines(d.name, isBuy).join(" ");
+            const displayVal = Number.isFinite(d.display) ? d.display : Math.abs(d.value);
 
-              tooltip.style("opacity",1).html(`${shownLabel}: ${formatMio(Math.abs(displayVal))}`);
-              positionTooltip(e);
-            })
-            .on("mousemove", positionTooltip)
-            .on("mouseout",()=>{
-              svg.classed("dimmed",false);
-              d3.selectAll(".node").classed("highlight",false);
-              tooltip.style("opacity",0);
-            });
+            tooltip.style("opacity", 1).html(`${shownLabel}: ${formatMio(Math.abs(displayVal))}`);
+            positionTooltip(e);
+          })
+          .on("mousemove", positionTooltip)
+          .on("mouseout", () => {
+            svg.classed("dimmed", false);
+            d3.selectAll(".node").classed("highlight", false);
+            tooltip.style("opacity", 0);
+          });
 
         node.append("rect")
           .attr("width", sankeyGen.nodeWidth())
@@ -369,27 +428,27 @@
         labelsLayer.selectAll("text")
           .data(visibleNodes)
           .enter().append("text")
-            .attr("class", "outside-label")
-            .attr("x", d => (d.col === "L" ? -12 : width + 12))
-            .attr("y", d => (d.y0 + d.y1) / 2)
-            .attr("text-anchor", d => (d.col === "L" ? "end" : "start"))
-            .attr("dominant-baseline", "middle")
-            .style("font-family", "Verdana, sans-serif")
-            .style("font-size", "12px")
-            .attr("data-name", d => d.name)
-            .attr("data-col", d => d.col)
-            .attr("data-display", d => {
-              const v = displayByName.get(d.name);
-              return Number.isFinite(v) ? v : Math.abs(d.value);
-            })
-            .attr("data-isbuy", d => (d.name === "right_divested" && divIsBuy) ? "1" : "0")
-            .each(function(d) {
-              const x = (d.col === "L") ? -12 : (width + 12);
-              const isBuy = (d.name === "right_divested" && divIsBuy);
-              setMultilineTextCentered(d3.select(this), labelLines(d.name, isBuy), x);
-            });
+          .attr("class", "outside-label")
+          .attr("x", d => (d.col === "L" ? -12 : width + 12))
+          .attr("y", d => (d.y0 + d.y1) / 2)
+          .attr("text-anchor", d => (d.col === "L" ? "end" : "start"))
+          .attr("dominant-baseline", "middle")
+          .style("font-family", "Verdana, sans-serif")
+          .style("font-size", "12px")
+          .attr("data-name", d => d.name)
+          .attr("data-col", d => d.col)
+          .attr("data-display", d => {
+            const v = displayByName.get(d.name);
+            return Number.isFinite(v) ? v : Math.abs(d.value);
+          })
+          .attr("data-isbuy", d => (d.name === "right_divested" && divIsBuy) ? "1" : "0")
+          .each(function (d) {
+            const x = (d.col === "L") ? -12 : (width + 12);
+            const isBuy = (d.name === "right_divested" && divIsBuy);
+            setMultilineTextCentered(d3.select(this), labelLines(d.name, isBuy), x);
+          });
       })
-      .catch(err => console.error("Failed to load CSVs or build sankey:", err));
+        .catch(err => console.error("Failed to load CSVs or build sankey:", err));
     }
 
     // ---------- Export helpers ----------
@@ -521,7 +580,7 @@
     }
 
     // ---------- wire up ----------
-    d3.select("#amSelect").on("change", function() {
+    d3.select("#amSelect").on("change", function () {
       loadChart(this.value);
     });
 
@@ -537,4 +596,5 @@
     loadChart(d3.select("#amSelect").property("value"));
   </script>
 </body>
+
 </html>
