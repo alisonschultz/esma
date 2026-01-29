@@ -160,8 +160,8 @@
   <div id="controls">
     <label for="amSelect">Investments:</label>
     <select id="amSelect">
-      <option value="esi_pab">Firmen, die gegen die Paris-aligned Benchmark (PAB) verstoßen</option>
-      <option value="esi_gogcel" selected>Alle Firmen von urgewalds Global Coal Exit List und Global Oil and Gas Exit
+      <option value="esi_pab" selected>Firmen, die gegen die Paris-aligned Benchmark (PAB) verstoßen</option>
+      <option value="esi_gogcel">Alle Firmen von urgewalds Global Coal Exit List und Global Oil and Gas Exit
         List</option>
       <!--<option value="esi_expansion">Firmen, die ihre fossilen Aktivitäten ausbauen</option>
       <option value="esi_expansion_coal_expansion">Firmen mit Kohle-Expansion</option>
@@ -259,12 +259,36 @@
       currentPrefix = prefix;
       svg.selectAll("*").remove();
 
+      const desiredOrder = new Map([
+        ["right_divested", 0],
+        ["right_renamed", 1],
+        ["right_esi", 2],
+        ["left_fossil", 0]
+      ]);
+
       const sankeyGen = d3.sankey()
         .nodeWidth(20)
         .nodePadding(10)
         .extent([[1, 1], [width - 1, height - 1]])
         .nodeAlign(d3.sankeyJustify)
-        .nodeSort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+
+        // Node order (right side nodes): Divestment on top
+        .nodeSort((a, b) => (desiredOrder.get(a.name) ?? 999) - (desiredOrder.get(b.name) ?? 999))
+
+        // Link order inside nodes: ensure the Divestment *band* sits at the top on the left and right
+        .linkSort((a, b) => {
+          const aT = a.target?.name ?? a.targetName ?? "";
+          const bT = b.target?.name ?? b.targetName ?? "";
+          const aS = a.source?.name ?? a.sourceName ?? "";
+          const bS = b.source?.name ?? b.sourceName ?? "";
+
+          // primary: sort by target category (divested first)
+          const dt = (desiredOrder.get(aT) ?? 999) - (desiredOrder.get(bT) ?? 999);
+          if (dt !== 0) return dt;
+
+          // secondary: tie-break by source category (rare but keeps it deterministic)
+          return (desiredOrder.get(aS) ?? 999) - (desiredOrder.get(bS) ?? 999);
+        });
 
       Promise.all([
         d3.csv(`${prefix}_nodes.csv`),
