@@ -1,21 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 
 <head>
-  <meta charset="UTF-8">
-  <title>ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben</title>
-  <meta property="og:title" content="ESMA-Leitlinien für Fondsnamen: Was „nachhaltige“ Fonds geändert haben" />
+  <meta charset="UTF-8" />
+  <title>ESMA fund-name guidelines: What “sustainable” funds changed</title>
+
+  <!-- (Optional) You can keep OG tags neutral; page language can be switched in-app -->
+  <meta property="og:title" content="ESMA fund-name guidelines: what changed" />
   <meta property="og:description"
-    content="Diese Grafik betrachtet nur Fonds mit Begriffen wie Nachhaltigkeit, Umwelt oder Impact im Namen. Nach den ESMA-Leitlinien dürfen diese Fonds keine Unternehmen im Portfolio haben, die nach der Paris-aligned Benchmark (PAB) ausgeschlossen sind. Die Grafik zeigt, was sich verändert hat." />
+    content="Sankey chart showing how investments changed before/after ESMA fund-name guidelines (PAB exclusions)." />
   <meta property="og:image" content="https://alisonschultz.github.io/esma/title_pic.png" />
   <meta property="og:url" content="https://alisonschultz.github.io/esma/" />
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/d3-sankey@0.12.3"></script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&display=swap" rel="stylesheet" />
 
   <style>
     body {
@@ -125,55 +127,16 @@
       opacity: 0;
       transition: opacity 0.2s;
     }
-
-    .header {
-      width: min(1100px, calc(100% - 48px));
-      margin: 18px auto 6px;
-      text-align: center;
-    }
-
-    .header h1 {
-      margin: 0 0 6px;
-      font-size: 20px;
-    }
-
-    .header p {
-      margin: 0 0 12px;
-      font-size: 14px;
-      line-height: 1.4;
-    }
   </style>
 </head>
 
 <body>
-  <div class="header">
-    <h1>ESMA-Leitlinien für Fondsnamen: Was &raquo;nachhaltige&laquo; Fonds geändert haben</h1>
-    <p>
-      Diese Grafik betrachtet Fonds, die Begriffe wie <b>Nachhaltigkeit</b>, <b>Umwelt</b> oder <b>Impact</b> im Namen
-      trugen.
-      Für diese Fonds gelten nach den ESMA-Leitlinien strengere Mindestanforderungen: Bestimmte Unternehmen, die nach
-      der
-      <b>Paris-aligned Benchmark (PAB)</b> ausgeschlossen sind, dürfen nicht mehr im Portfolio enthalten sein.
-      Die Sankey-Grafik zeigt, wie sich die Investitionen vor und nach den Leitlinien verändert haben.<br>
-      📄 <a href="https://isitchristmas.com/" target="_blank" style="text-decoration: none; color: #006699;">
-        Zur Studie (Hintergrund &amp; Methodik [bisher noch random Link])
-      </a>
-    </p>
-  </div>
-
+  <!-- Controls: language only -->
   <div id="controls">
-    <label for="amSelect">Investments:</label>
-    <select id="amSelect">
-      <option value="esi_pab" selected>Firmen, die gegen die Paris-aligned Benchmark (PAB) verstoßen</option>
-      <!--<option value="esi_gogcel">Alle Firmen von urgewalds Global Coal Exit List und Global Oil and Gas Exit
-        List</option>
-      <option value="esi_expansion">Firmen, die ihre fossilen Aktivitäten ausbauen</option>
-      <option value="esi_expansion_coal_expansion">Firmen mit Kohle-Expansion</option>
-      <option value="esi_expansion_short_term_expansion_20_mmboe">Firmen mit kurzfristiger Expansionsaktivität</option>
-      <option value="esi_expansion_pipeline_expansion_100_km">Firmen mit Pipeline-Expansion</option>
-      <option value="esi_expansion_lng_expansion_1_mtpa">Firmen mit LNG-Expansion</option>
-      <option value="esi_expansion_gas_fired_power_expansion_100_mw">Firmen mit Ausbau von Gaskraftwerken</option>
-      <option value="esi_expansion_oil_fired_power_expansion_100_mw">Firmen mit Ausbau von Ölkraftwerken</option> -->
+    <label for="langSelect" id="langLabel">Sprache:</label>
+    <select id="langSelect">
+      <option value="de" selected>Deutsch</option>
+      <option value="en">English</option>
     </select>
   </div>
 
@@ -189,39 +152,58 @@
   <div class="tooltip" id="tooltip"></div>
 
   <script>
+    // =========================
+    // Language strings
+    // =========================
+    const I18N = {
+      de: {
+        langLabel: "Sprache:",
+        btnSvg: "SVG herunterladen",
+        btnPng: "PNG herunterladen",
+        colLeft: "Vor ESMA-Leitlinien",
+        colRight: "Aktuellstes Portfolio",
+        // Node labels (multi-line)
+        labels: {
+          left_fossil: ["Ausgangsbestand"],
+          right_esi: ["Weiterhin investiert,", "Fondsname unverändert"],
+          right_renamed: ["Weiterhin investiert,", "Fondsname geändert"],
+          right_divested: ["Divestment"],
+          right_bought: ["Zugekauft"],
+        },
+        // Formatting
+        fmtLocale: "de-DE",
+        formatMio: (num) => `${new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(num)} Mio. €`,
+      },
+      en: {
+        langLabel: "Language:",
+        btnSvg: "Download SVG",
+        btnPng: "Download PNG",
+        colLeft: "Before ESMA guidelines",
+        colRight: "Latest portfolio",
+        labels: {
+          left_fossil: ["Starting holdings"],
+          right_esi: ["Still invested,", "name unchanged"],
+          right_renamed: ["Still invested,", "name changed"],
+          right_divested: ["Divested"],
+          right_bought: ["Bought"],
+        },
+        fmtLocale: "en-GB",
+        formatMio: (num) => `€${new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 }).format(num)}m`,
+      }
+    };
+
+    // =========================
+    // Fixed dataset prefix: ONLY PAB
+    // =========================
+    const DATA_PREFIX = "esi_pab";
+
     // ---------- dimensions ----------
     const margin = { top: 40, right: 330, bottom: 40, left: 260 };
     const fullW = 1240, fullH = 500;
     const width = fullW - margin.left - margin.right;
     const height = fullH - margin.top - margin.bottom;
 
-    const order = ["left_fossil", "right_divested", "right_renamed", "right_esi"];
-
-    // Base labels (divested gets replaced to Zugekauft when needed)
-    const labels = {
-      left_fossil: ["Ausgangsbestand"],
-      right_esi: ["Weiterhin investiert,", "Fondsname unverändert"],
-      right_renamed: ["Weiterhin investiert,", "Fondsname geändert"],
-      right_divested: ["Divestment"],
-      right_bought: ["Zugekauft"], // used when divested is negative
-    };
-
-    // German number formatting
-    const fmtDE = new Intl.NumberFormat("de-DE", {
-      maximumFractionDigits: 0
-    });
-
-
-    function formatMio(v) {
-      return `${fmtDE.format(v)} Mio. €`;
-    }
-
-    function labelLines(name, isBuy = false) {
-      if (name === "right_divested" && isBuy) return labels.right_bought.slice();
-      return labels[name] ? labels[name].slice() : [name];
-    }
-
-    // SVG setup
+    // SVG setup (kept constant; we clear inner group on redraw)
     const svgRoot = d3.select("#chart")
       .append("svg")
       .attr("viewBox", `0 0 ${fullW} ${fullH}`)
@@ -231,7 +213,28 @@
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     const tooltip = d3.select("#tooltip");
-    let currentPrefix = d3.select("#amSelect").property("value");
+
+    let currentLang = d3.select("#langSelect").property("value") || "de";
+
+    // Helper: label lines for node key + buy/sell switch
+    function labelLines(name, isBuy = false) {
+      const L = I18N[currentLang].labels;
+      if (name === "right_divested" && isBuy) return L.right_bought.slice();
+      return L[name] ? L[name].slice() : [name];
+    }
+
+    function formatMio(v) {
+      // v is already in "million EUR" units according to your CSV logic
+      return I18N[currentLang].formatMio(v);
+    }
+
+    function applyUiLanguage() {
+      const t = I18N[currentLang];
+      document.documentElement.lang = currentLang;
+      document.getElementById("langLabel").textContent = t.langLabel;
+      document.getElementById("btnSvg").textContent = t.btnSvg;
+      document.getElementById("btnPng").textContent = t.btnPng;
+    }
 
     function positionTooltip(e) {
       const tt = tooltip.node();
@@ -245,7 +248,7 @@
       tooltip.style("left", x + "px").style("top", (e.pageY - 6) + "px");
     }
 
-    // NEW: vertically center a multi-line label around y by shifting the first line upward
+    // Vertically center a multi-line label around y by shifting the first line upward
     function setMultilineTextCentered(textSel, lines, x, lineDy = 1.15) {
       textSel.selectAll("tspan").remove();
       const n = lines.length;
@@ -260,7 +263,6 @@
     }
 
     function loadChart(prefix) {
-      currentPrefix = prefix;
       svg.selectAll("*").remove();
 
       const desiredOrder = new Map([
@@ -275,22 +277,16 @@
         .nodePadding(10)
         .extent([[1, 1], [width - 1, height - 1]])
         .nodeAlign(d3.sankeyJustify)
-
-        // Node order (right side nodes): Divestment on top
         .nodeSort((a, b) => (desiredOrder.get(a.name) ?? 999) - (desiredOrder.get(b.name) ?? 999))
-
-        // Link order inside nodes: ensure the Divestment *band* sits at the top on the left and right
         .linkSort((a, b) => {
           const aT = a.target?.name ?? a.targetName ?? "";
           const bT = b.target?.name ?? b.targetName ?? "";
           const aS = a.source?.name ?? a.sourceName ?? "";
           const bS = b.source?.name ?? b.sourceName ?? "";
 
-          // primary: sort by target category (divested first)
           const dt = (desiredOrder.get(aT) ?? 999) - (desiredOrder.get(bT) ?? 999);
           if (dt !== 0) return dt;
 
-          // secondary: tie-break by source category (rare but keeps it deterministic)
           return (desiredOrder.get(aS) ?? 999) - (desiredOrder.get(bS) ?? 999);
         });
 
@@ -397,6 +393,7 @@
           });
 
         // Headings (bold)
+        const t = I18N[currentLang];
         const leftNodes = visibleNodes.filter(d => d.col === "L");
         const rightNodes = visibleNodes.filter(d => d.col === "R");
         const leftX = d3.min(leftNodes, d => d.x0);
@@ -409,7 +406,7 @@
           .attr("text-anchor", "start")
           .style("font-size", "12px")
           .style("font-weight", "700")
-          .text("Vor ESMA-Leitlinien");
+          .text(t.colLeft);
 
         svg.append("text")
           .attr("class", "col-heading")
@@ -418,7 +415,7 @@
           .attr("text-anchor", "end")
           .style("font-size", "12px")
           .style("font-weight", "700")
-          .text("Aktuellstes Portfolio");
+          .text(t.colRight);
 
         // Nodes (tooltip only)
         const node = svg.append("g")
@@ -450,7 +447,7 @@
           .attr("height", d => d.y1 - d.y0)
           .attr("fill", d => d.color);
 
-        // OUTSIDE LABELS (browser: label only)
+        // OUTSIDE LABELS
         const labelsLayer = svg.append("g").attr("class", "outside-labels");
 
         labelsLayer.selectAll("text")
@@ -502,7 +499,7 @@
       svgElClone.insertBefore(styleEl, svgElClone.firstChild);
     }
 
-    // Export: numbers on own line for all labels EXCEPT Verkauft/Zugekauft ("right_divested")
+    // Export: numbers on own line for all labels EXCEPT Divested/Bought ("right_divested")
     function addNumbersToClonedSVG(svgElClone) {
       const labelTexts = svgElClone.querySelectorAll("text.outside-label");
 
@@ -516,14 +513,13 @@
         const last = tspans[tspans.length - 1];
         const x = last.getAttribute("x") || tspans[0].getAttribute("x") || "0";
 
-        const oneLine = (name === "right_divested"); // Verkauft/Zugekauft: one line
+        const oneLine = (name === "right_divested"); // Divested/Bought stays one line
 
         if (oneLine) {
           last.textContent = `${last.textContent}: ${formatMio(displayVal)}`;
           return;
         }
 
-        // add number on its own line (no colon)
         const tspanNum = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
         tspanNum.setAttribute("x", x);
         tspanNum.setAttribute("dy", "1.15em");
@@ -608,20 +604,23 @@
     }
 
     // ---------- wire up ----------
-    d3.select("#amSelect").on("change", function () {
-      loadChart(this.value);
+    d3.select("#langSelect").on("change", function () {
+      currentLang = this.value;
+      applyUiLanguage();
+      loadChart(DATA_PREFIX); // redraw same data, new language
     });
 
     document.getElementById("btnSvg").addEventListener("click", () => {
-      downloadSVGWithNumbers(`sankey_${currentPrefix}.svg`);
+      downloadSVGWithNumbers(`sankey_${DATA_PREFIX}_${currentLang}.svg`);
     });
 
     document.getElementById("btnPng").addEventListener("click", () => {
-      downloadPNGWithNumbers(`sankey_${currentPrefix}.png`, 4);
+      downloadPNGWithNumbers(`sankey_${DATA_PREFIX}_${currentLang}.png`, 4);
     });
 
     // initial draw
-    loadChart(d3.select("#amSelect").property("value"));
+    applyUiLanguage();
+    loadChart(DATA_PREFIX);
   </script>
 </body>
 
