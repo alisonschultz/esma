@@ -5,23 +5,19 @@
   <meta charset="UTF-8" />
   <title>ESMA fund-name guidelines: What “sustainable” funds changed</title>
 
-  <!-- Keep these, but avoid external asset URLs -->
+  <!-- Keep OG tags neutral; update og:url + og:image once hosted on charts.urgewald.org -->
   <meta property="og:title" content="ESMA fund-name guidelines: what changed" />
   <meta property="og:description"
     content="Sankey chart showing how investments changed before/after ESMA fund-name guidelines (PAB exclusions)." />
-
-  <!-- ✅ Make OG image local -->
   <meta property="og:image" content="./assets/img/title_pic.png" />
-
-  <!-- ✅ If you later host on charts.urgewald.org, update og:url to that domain -->
   <meta property="og:url" content="./" />
 
-  <!-- ✅ Local (vendored) libraries instead of CDNs -->
+  <!-- ✅ Local (vendored) libraries (NO CDN) -->
   <script src="./vendor/d3.v7.min.js"></script>
   <script src="./vendor/d3-sankey.min.js"></script>
 
   <style>
-    /* ✅ Local fonts (no Google Fonts) */
+    /* ✅ Local fonts (NO Google Fonts). If fonts are missing, browser falls back to sans-serif. */
     @font-face {
       font-family: "Barlow";
       src: url("./assets/fonts/barlow-latin-400-normal.woff2") format("woff2");
@@ -153,10 +149,21 @@
       opacity: 0;
       transition: opacity 0.2s;
     }
+
+    /* Optional: show a red debug line if something fails */
+    #debug {
+      display: none;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #b00020;
+      max-width: min(1100px, calc(100% - 48px));
+      text-align: center;
+    }
   </style>
 </head>
 
 <body>
+  <!-- Controls: language only -->
   <div id="controls">
     <label for="langSelect" id="langLabel">Sprache:</label>
     <select id="langSelect">
@@ -167,6 +174,7 @@
 
   <div id="chartWrap">
     <div id="chart"></div>
+    <div id="debug"></div>
 
     <div id="downloads" aria-label="downloads">
       <button id="btnSvg" type="button">SVG herunterladen</button>
@@ -177,6 +185,28 @@
   <div class="tooltip" id="tooltip"></div>
 
   <script>
+    // ============================================================
+    // Helpers (debug + guardrails)
+    // ============================================================
+    const debugEl = document.getElementById("debug");
+    function showDebug(msg) {
+      debugEl.style.display = "block";
+      debugEl.textContent = msg;
+    }
+
+    // Guardrails: fail early with a helpful message
+    if (typeof d3 === "undefined") {
+      showDebug("Fehler: d3 wurde nicht geladen. Prüfe ./vendor/d3.v7.min.js (Pfad/Dateiname).");
+      throw new Error("d3 not loaded");
+    }
+    if (typeof d3.sankey !== "function") {
+      showDebug("Fehler: d3-sankey wurde nicht geladen. Prüfe ./vendor/d3-sankey.min.js (Pfad/Dateiname).");
+      throw new Error("d3-sankey not loaded");
+    }
+
+    // ============================================================
+    // Language strings
+    // ============================================================
     const I18N = {
       de: {
         langLabel: "Sprache:",
@@ -210,13 +240,20 @@
       }
     };
 
+    // ============================================================
+    // Fixed dataset prefix: ONLY PAB
+    // ============================================================
     const DATA_PREFIX = "esi_pab";
 
+    // ============================================================
+    // Dimensions
+    // ============================================================
     const margin = { top: 40, right: 330, bottom: 40, left: 260 };
     const fullW = 1240, fullH = 500;
     const width = fullW - margin.left - margin.right;
     const height = fullH - margin.top - margin.bottom;
 
+    // SVG setup (kept constant; we clear inner group on redraw)
     const svgRoot = d3.select("#chart")
       .append("svg")
       .attr("viewBox", `0 0 ${fullW} ${fullH}`)
@@ -226,16 +263,20 @@
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     const tooltip = d3.select("#tooltip");
-    let currentLang = d3.select("#langSelect").property("value") || "de";
+
+    let currentLang = document.getElementById("langSelect").value || "de";
+
+    // ============================================================
+    // Formatting / label helpers
+    // ============================================================
+    function formatMio(v) {
+      return I18N[currentLang].formatMio(v);
+    }
 
     function labelLines(name, isBuy = false) {
       const L = I18N[currentLang].labels;
       if (name === "right_divested" && isBuy) return L.right_bought.slice();
       return L[name] ? L[name].slice() : [name];
-    }
-
-    function formatMio(v) {
-      return I18N[currentLang].formatMio(v);
     }
 
     function applyUiLanguage() {
@@ -258,6 +299,7 @@
       tooltip.style("left", x + "px").style("top", (e.pageY - 6) + "px");
     }
 
+    // Vertically center a multi-line label around y by shifting the first line upward
     function setMultilineTextCentered(textSel, lines, x, lineDy = 1.15) {
       textSel.selectAll("tspan").remove();
       const n = lines.length;
@@ -271,6 +313,9 @@
       });
     }
 
+    // ============================================================
+    // Main chart
+    // ============================================================
     function loadChart(prefix) {
       svg.selectAll("*").remove();
 
@@ -295,6 +340,7 @@
 
           const dt = (desiredOrder.get(aT) ?? 999) - (desiredOrder.get(bT) ?? 999);
           if (dt !== 0) return dt;
+
           return (desiredOrder.get(aS) ?? 999) - (desiredOrder.get(bS) ?? 999);
         });
 
@@ -304,13 +350,16 @@
       ]).then(([nodesRaw, linksRaw]) => {
         const N = nodesRaw.length;
 
+        // Map: display_mio per category (used in tooltips/export)
         const displayByName = new Map(
           nodesRaw.map(d => [String(d.kategorie || "").trim(), +d.display_mio])
         );
 
+        // Determine if divested is "buy" based on LINKS value (signed)
         const divLink = linksRaw.find(d => String(d.target_kategorie || "").trim() === "right_divested");
         const divIsBuy = divLink ? (+divLink.value < 0) : false;
 
+        // Build sankey nodes (duplicate left/right)
         const sankeyNodes = nodesRaw
           .map(d => ({
             name: String(d.kategorie || "").trim(),
@@ -327,6 +376,7 @@
             }))
           );
 
+        // Build links: abs() for geometry; keep signed for logic
         const sankeyLinks = linksRaw
           .map(d => {
             const sName = String(d.source_kategorie || "").trim();
@@ -339,13 +389,14 @@
             return {
               source: s,
               target: N + t,
-              value: Math.abs(signed),
-              signedValue: signed,
+              value: Math.abs(signed),   // geometry
+              signedValue: signed,       // logic
               targetName: tName
             };
           })
           .filter(Boolean);
 
+        // If divested is negative (=buy), recolor that link + node to brown
         if (divIsBuy) {
           const brown = "#B23A48";
           sankeyLinks.forEach(L => { if (L.targetName === "right_divested") L._forceColor = brown; });
@@ -355,6 +406,7 @@
         const { nodes: Gnodes, links: Glinks } = sankeyGen({ nodes: sankeyNodes, links: sankeyLinks });
         const visibleNodes = Gnodes.filter(d => d.value > 0);
 
+        // Gradients
         const defs = svg.append("defs");
         Glinks.forEach((link, i) => {
           const srcColor = sankeyNodes[link.source.index].color;
@@ -370,6 +422,7 @@
           grad.append("stop").attr("offset", "100%").attr("stop-color", tgtColor);
         });
 
+        // Links (tooltip only)
         svg.append("g")
           .selectAll("path")
           .data(Glinks)
@@ -381,6 +434,7 @@
           .on("mouseover", (e, d) => {
             svg.classed("dimmed", true);
             d3.select(e.currentTarget).classed("highlight", true);
+
             const signed = (d.signedValue !== undefined) ? d.signedValue : d.value;
             tooltip.style("opacity", 1).html(`${formatMio(Math.abs(signed))}`);
             positionTooltip(e);
@@ -392,6 +446,7 @@
             tooltip.style("opacity", 0);
           });
 
+        // Headings (bold)
         const t = I18N[currentLang];
         const leftNodes = visibleNodes.filter(d => d.col === "L");
         const rightNodes = visibleNodes.filter(d => d.col === "R");
@@ -416,6 +471,7 @@
           .style("font-weight", "700")
           .text(t.colRight);
 
+        // Nodes (tooltip only)
         const node = svg.append("g")
           .selectAll("g")
           .data(visibleNodes)
@@ -445,6 +501,7 @@
           .attr("height", d => d.y1 - d.y0)
           .attr("fill", d => d.color);
 
+        // OUTSIDE LABELS
         const labelsLayer = svg.append("g").attr("class", "outside-labels");
 
         labelsLayer.selectAll("text")
@@ -463,23 +520,166 @@
             const v = displayByName.get(d.name);
             return Number.isFinite(v) ? v : Math.abs(d.value);
           })
+          .attr("data-isbuy", d => (d.name === "right_divested" && divIsBuy) ? "1" : "0")
           .each(function (d) {
             const x = (d.col === "L") ? -12 : (width + 12);
             const isBuy = (d.name === "right_divested" && divIsBuy);
             setMultilineTextCentered(d3.select(this), labelLines(d.name, isBuy), x);
           });
-      })
-        .catch(err => console.error("Failed to load CSVs or build sankey:", err));
+
+      }).catch(err => {
+        console.error(err);
+        showDebug("Fehler beim Laden der CSVs. Liegen esi_pab_nodes.csv und esi_pab_links.csv neben index.html? (und nicht in Unterordnern)");
+      });
     }
 
-    // Export helpers unchanged (your existing code) …
+    // ============================================================
+    // Export helpers
+    // ============================================================
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
 
-    d3.select("#langSelect").on("change", function () {
+    function injectExportStyles(svgElClone) {
+      svgElClone.setAttribute("font-family", "Barlow, sans-serif");
+      const styleEl = document.createElementNS("http://www.w3.org/2000/svg", "style");
+      styleEl.textContent = `
+        text { font-family: Barlow, sans-serif; font-size: 12px; }
+        text.outside-label { font-size: 12px; dominant-baseline: middle; }
+        text.col-heading { font-size: 12px; font-weight: 700; }
+      `;
+      svgElClone.insertBefore(styleEl, svgElClone.firstChild);
+    }
+
+    // Export: numbers on own line for all labels EXCEPT Divested/Bought ("right_divested")
+    function addNumbersToClonedSVG(svgElClone) {
+      const labelTexts = svgElClone.querySelectorAll("text.outside-label");
+
+      labelTexts.forEach(t => {
+        const name = t.getAttribute("data-name");
+        const displayVal = Math.abs(Number(t.getAttribute("data-display")));
+
+        const tspans = Array.from(t.querySelectorAll("tspan"));
+        if (tspans.length === 0) return;
+
+        const last = tspans[tspans.length - 1];
+        const x = last.getAttribute("x") || tspans[0].getAttribute("x") || "0";
+
+        const oneLine = (name === "right_divested"); // Divested/Bought stays one line
+
+        if (oneLine) {
+          last.textContent = `${last.textContent}: ${formatMio(displayVal)}`;
+          return;
+        }
+
+        const tspanNum = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspanNum.setAttribute("x", x);
+        tspanNum.setAttribute("dy", "1.15em");
+        tspanNum.textContent = `${formatMio(displayVal)}`;
+        t.appendChild(tspanNum);
+      });
+    }
+
+    function serializeSVG(svgEl) {
+      const serializer = new XMLSerializer();
+      let source = serializer.serializeToString(svgEl);
+
+      if (!source.match(/^<svg[^>]+xmlns=/)) {
+        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      if (!source.match(/^<svg[^>]+"http:\/\/www.w3.org\/1999\/xlink"/)) {
+        source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+      }
+      return source;
+    }
+
+    function downloadSVGWithNumbers(filename) {
+      const svgEl = d3.select("#chart").select("svg").node();
+      const clone = svgEl.cloneNode(true);
+
+      const vb = svgEl.viewBox && svgEl.viewBox.baseVal ? svgEl.viewBox.baseVal : null;
+      if (vb) {
+        clone.setAttribute("width", vb.width);
+        clone.setAttribute("height", vb.height);
+      }
+
+      injectExportStyles(clone);
+      addNumbersToClonedSVG(clone);
+
+      const source = serializeSVG(clone);
+      const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+      downloadBlob(blob, filename);
+    }
+
+    function downloadPNGWithNumbers(filename, scale = 4) {
+      const svgEl = d3.select("#chart").select("svg").node();
+      const clone = svgEl.cloneNode(true);
+
+      const vb = svgEl.viewBox && svgEl.viewBox.baseVal ? svgEl.viewBox.baseVal : null;
+      const w = vb ? vb.width : fullW;
+      const h = vb ? vb.height : fullH;
+
+      clone.setAttribute("width", w);
+      clone.setAttribute("height", h);
+
+      injectExportStyles(clone);
+      addNumbersToClonedSVG(clone);
+
+      const svgString = serializeSVG(clone);
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(blob => {
+          downloadBlob(blob, filename);
+          URL.revokeObjectURL(url);
+        }, "image/png");
+      };
+
+      img.onerror = (e) => {
+        console.error("PNG export failed", e);
+        URL.revokeObjectURL(url);
+      };
+
+      img.src = url;
+    }
+
+    // ============================================================
+    // Wire up
+    // ============================================================
+    document.getElementById("langSelect").addEventListener("change", function () {
       currentLang = this.value;
       applyUiLanguage();
-      loadChart(DATA_PREFIX);
+      loadChart(DATA_PREFIX); // redraw same data, new language
     });
 
+    document.getElementById("btnSvg").addEventListener("click", () => {
+      downloadSVGWithNumbers(`sankey_${DATA_PREFIX}_${currentLang}.svg`);
+    });
+
+    document.getElementById("btnPng").addEventListener("click", () => {
+      downloadPNGWithNumbers(`sankey_${DATA_PREFIX}_${currentLang}.png`, 4);
+    });
+
+    // initial draw
     applyUiLanguage();
     loadChart(DATA_PREFIX);
   </script>
