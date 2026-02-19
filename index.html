@@ -246,6 +246,30 @@
     const DATA_PREFIX = "esi_pab";
 
     // ============================================================
+    // Language via query parameter ?lang=de|en
+    // ============================================================
+    function getInitialLang() {
+      const p = new URLSearchParams(window.location.search);
+      const q = (p.get("lang") || "").toLowerCase();
+      if (q === "de" || q === "en") return q;
+
+      // Optional fallback: browser language
+      const nav = (navigator.language || "").toLowerCase();
+      if (nav.startsWith("en")) return "en";
+      return "de";
+    }
+
+    function setLangInUrl(lang) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("lang", lang);
+      window.history.replaceState({}, "", url.toString());
+    }
+
+    // Set language from query (and sync dropdown)
+    let currentLang = getInitialLang();
+    document.getElementById("langSelect").value = currentLang;
+
+    // ============================================================
     // Dimensions
     // ============================================================
     const margin = { top: 40, right: 330, bottom: 40, left: 260 };
@@ -263,8 +287,6 @@
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     const tooltip = d3.select("#tooltip");
-
-    let currentLang = document.getElementById("langSelect").value || "de";
 
     // ============================================================
     // Formatting / label helpers
@@ -667,6 +689,10 @@
     // ============================================================
     document.getElementById("langSelect").addEventListener("change", function () {
       currentLang = this.value;
+
+      // ✅ Keep URL in sync for deep-linking
+      setLangInUrl(currentLang);
+
       applyUiLanguage();
       loadChart(DATA_PREFIX); // redraw same data, new language
     });
@@ -681,6 +707,10 @@
 
     // initial draw
     applyUiLanguage();
+
+    // ✅ Ensure URL includes lang on first load (nice for copy/paste)
+    setLangInUrl(currentLang);
+
     loadChart(DATA_PREFIX);
   </script>
 </body>
