@@ -5,21 +5,46 @@
   <meta charset="UTF-8" />
   <title>ESMA fund-name guidelines: What “sustainable” funds changed</title>
 
-  <!-- (Optional) You can keep OG tags neutral; page language can be switched in-app -->
+  <!-- If you later host on charts.urgewald.org, update these URLs accordingly -->
   <meta property="og:title" content="ESMA fund-name guidelines: what changed" />
   <meta property="og:description"
     content="Sankey chart showing how investments changed before/after ESMA fund-name guidelines (PAB exclusions)." />
   <meta property="og:image" content="https://alisonschultz.github.io/esma/title_pic.png" />
   <meta property="og:url" content="https://alisonschultz.github.io/esma/" />
 
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://unpkg.com/d3-sankey@0.12.3"></script>
+  <!-- ✅ Local (vendored) libraries instead of CDNs -->
+  <!-- Put these files in: ./vendor/ -->
+  <script src="./vendor/d3.v7.min.js"></script>
+  <script src="./vendor/d3-sankey@0.12.3.min.js"></script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&display=swap" rel="stylesheet" />
-
+  <!-- ✅ Local fonts (no Google Fonts) -->
+  <!-- Put these files in: ./assets/fonts/ -->
   <style>
+    /* Barlow Latin; adjust paths if your folders differ */
+    @font-face {
+      font-family: "Barlow";
+      src: url("./assets/fonts/Barlow-Regular.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Barlow";
+      src: url("./assets/fonts/Barlow-SemiBold.woff2") format("woff2");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Barlow";
+      src: url("./assets/fonts/Barlow-Bold.woff2") format("woff2");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
     body {
       font-family: Barlow, sans-serif;
       margin: 0;
@@ -162,7 +187,6 @@
         btnPng: "PNG herunterladen",
         colLeft: "Vor ESMA-Leitlinien",
         colRight: "Aktuellstes Portfolio",
-        // Node labels (multi-line)
         labels: {
           left_fossil: ["Ausgangsbestand"],
           right_esi: ["Weiterhin investiert,", "Fondsname unverändert"],
@@ -170,8 +194,6 @@
           right_divested: ["Divestment"],
           right_bought: ["Zugekauft"],
         },
-        // Formatting
-        fmtLocale: "de-DE",
         formatMio: (num) => `${new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(num)} Mio. €`,
       },
       en: {
@@ -187,14 +209,11 @@
           right_divested: ["Divested"],
           right_bought: ["Bought"],
         },
-        fmtLocale: "en-GB",
         formatMio: (num) => `€${new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 }).format(num)}m`,
       }
     };
 
-    // =========================
     // Fixed dataset prefix: ONLY PAB
-    // =========================
     const DATA_PREFIX = "esi_pab";
 
     // ---------- dimensions ----------
@@ -216,7 +235,6 @@
 
     let currentLang = d3.select("#langSelect").property("value") || "de";
 
-    // Helper: label lines for node key + buy/sell switch
     function labelLines(name, isBuy = false) {
       const L = I18N[currentLang].labels;
       if (name === "right_divested" && isBuy) return L.right_bought.slice();
@@ -224,7 +242,6 @@
     }
 
     function formatMio(v) {
-      // v is already in "million EUR" units according to your CSV logic
       return I18N[currentLang].formatMio(v);
     }
 
@@ -248,7 +265,6 @@
       tooltip.style("left", x + "px").style("top", (e.pageY - 6) + "px");
     }
 
-    // Vertically center a multi-line label around y by shifting the first line upward
     function setMultilineTextCentered(textSel, lines, x, lineDy = 1.15) {
       textSel.selectAll("tspan").remove();
       const n = lines.length;
@@ -296,16 +312,13 @@
       ]).then(([nodesRaw, linksRaw]) => {
         const N = nodesRaw.length;
 
-        // Map: display_mio per category
         const displayByName = new Map(
           nodesRaw.map(d => [String(d.kategorie || "").trim(), +d.display_mio])
         );
 
-        // Determine if divested is "buy" based on LINKS value (signed)
         const divLink = linksRaw.find(d => String(d.target_kategorie || "").trim() === "right_divested");
         const divIsBuy = divLink ? (+divLink.value < 0) : false;
 
-        // Build sankey nodes (duplicate left/right)
         const sankeyNodes = nodesRaw
           .map(d => ({
             name: String(d.kategorie || "").trim(),
@@ -322,7 +335,6 @@
             }))
           );
 
-        // Build links: abs() for geometry; keep signed for logic
         const sankeyLinks = linksRaw
           .map(d => {
             const sName = String(d.source_kategorie || "").trim();
@@ -335,14 +347,13 @@
             return {
               source: s,
               target: N + t,
-              value: Math.abs(signed),   // geometry
-              signedValue: signed,       // logic
+              value: Math.abs(signed),
+              signedValue: signed,
               targetName: tName
             };
           })
           .filter(Boolean);
 
-        // If divested is negative (=buy), recolor that link + node to brown
         if (divIsBuy) {
           const brown = "#B23A48";
           sankeyLinks.forEach(L => { if (L.targetName === "right_divested") L._forceColor = brown; });
@@ -352,7 +363,6 @@
         const { nodes: Gnodes, links: Glinks } = sankeyGen({ nodes: sankeyNodes, links: sankeyLinks });
         const visibleNodes = Gnodes.filter(d => d.value > 0);
 
-        // Gradients
         const defs = svg.append("defs");
         Glinks.forEach((link, i) => {
           const srcColor = sankeyNodes[link.source.index].color;
@@ -368,7 +378,6 @@
           grad.append("stop").attr("offset", "100%").attr("stop-color", tgtColor);
         });
 
-        // Links (tooltip only)
         svg.append("g")
           .selectAll("path")
           .data(Glinks)
@@ -392,7 +401,6 @@
             tooltip.style("opacity", 0);
           });
 
-        // Headings (bold)
         const t = I18N[currentLang];
         const leftNodes = visibleNodes.filter(d => d.col === "L");
         const rightNodes = visibleNodes.filter(d => d.col === "R");
@@ -417,7 +425,6 @@
           .style("font-weight", "700")
           .text(t.colRight);
 
-        // Nodes (tooltip only)
         const node = svg.append("g")
           .selectAll("g")
           .data(visibleNodes)
@@ -447,7 +454,6 @@
           .attr("height", d => d.y1 - d.y0)
           .attr("fill", d => d.color);
 
-        // OUTSIDE LABELS
         const labelsLayer = svg.append("g").attr("class", "outside-labels");
 
         labelsLayer.selectAll("text")
@@ -499,7 +505,6 @@
       svgElClone.insertBefore(styleEl, svgElClone.firstChild);
     }
 
-    // Export: numbers on own line for all labels EXCEPT Divested/Bought ("right_divested")
     function addNumbersToClonedSVG(svgElClone) {
       const labelTexts = svgElClone.querySelectorAll("text.outside-label");
 
@@ -513,7 +518,7 @@
         const last = tspans[tspans.length - 1];
         const x = last.getAttribute("x") || tspans[0].getAttribute("x") || "0";
 
-        const oneLine = (name === "right_divested"); // Divested/Bought stays one line
+        const oneLine = (name === "right_divested");
 
         if (oneLine) {
           last.textContent = `${last.textContent}: ${formatMio(displayVal)}`;
@@ -607,7 +612,7 @@
     d3.select("#langSelect").on("change", function () {
       currentLang = this.value;
       applyUiLanguage();
-      loadChart(DATA_PREFIX); // redraw same data, new language
+      loadChart(DATA_PREFIX);
     });
 
     document.getElementById("btnSvg").addEventListener("click", () => {
